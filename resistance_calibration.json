@@ -1,0 +1,20 @@
+{
+  "r1": 122.140449,
+  "r2": 74.322303,
+  "demux_r": 100.0,
+  "mux_r": 100.0,
+  "supply_voltage": 3.3,
+  "calibration_channel": 30,
+  "calibration_test": "compute_distro",
+  "calibration_note": "Calibrated from Compute Distro C30 (Y15, ADC1).",
+  "last_calibration": {
+    "point_a": {
+      "resistance_ohms": 1.0,
+      "voltage": 0.759
+    },
+    "point_b": {
+      "resistance_ohms": 100.0,
+      "voltage": 0.581
+    }
+  }
+}
