@@ -1395,7 +1395,6 @@ class MainWindow(QMainWindow):
         if self.ser:
             self.status_label.setText("Device connected")
             self.status_label.setStyleSheet("color: #0d8c5a;")
-            self._request_calibration_from_device()
         else:
             self.status_label.setText("No device found - Click Start to retry")
         
@@ -1881,26 +1880,37 @@ class MainWindow(QMainWindow):
         self.channels_widget.updateGeometry()
         self._refresh_visible_channel_resistances()
 
-    def _set_board_type(self, board_type):
-        self.board_type = board_type
-        if self.board_type == "resistance":
-            self._request_calibration_from_device()
-        self._apply_board_type_ui()
-        if self.board_type == "resistance" and not self.calibration_loaded:
-            self.status_label.setText("Resistance board selected. Calibration required.")
-            self.status_label.setStyleSheet("color: #FED541;")
-        elif self.board_type == "resistance":
+    def _update_board_type_status_label(self):
+        if self.board_type != "resistance":
+            return
+        if self.calibration_loaded:
             self.status_label.setText("Resistance board selected. Using Pico calibration.")
             self.status_label.setStyleSheet("color: #0d8c5a;")
+        else:
+            self.status_label.setText("Resistance board selected. Calibration required.")
+            self.status_label.setStyleSheet("color: #FED541;")
+
+    def _check_calibration_after_board_switch(self):
+        if self.board_type != "resistance":
+            return
+        if self._request_calibration_from_device():
+            self._apply_board_type_ui()
+        self._update_board_type_status_label()
+
+    def _set_board_type(self, board_type):
+        self.board_type = board_type
+        self._apply_board_type_ui()
+        self._update_board_type_status_label()
+        if self.board_type == "resistance" and self.ser and self.ser.is_open and not self.calibration_loaded:
+            QTimer.singleShot(0, self._check_calibration_after_board_switch)
 
     def prompt_change_board_type(self):
-        self._request_calibration_from_device()
         choice = show_styled_choice(
             self,
             "Board Type",
             "Choose which board is connected. Resistance mode shows calibrated ohms and color-only status. Continuity/short mode keeps the default tester behavior.",
             [
-                ("continuity", "Continuity / Short Board", True),
+                ("continuity", "Continuity / Short Board", False),
                 ("resistance", "Resistance Board", False),
                 ("cancel", "Cancel", False),
             ],
@@ -1909,13 +1919,12 @@ class MainWindow(QMainWindow):
             self._set_board_type(choice)
 
     def prompt_startup_board_type(self):
-        self._request_calibration_from_device()
         choice = show_styled_choice(
             self,
             "Board Type",
             "Are you using the high accuracy resistance measurement board or the normal continuity / short board?",
             [
-                ("continuity", "Continuity / Short Board", True),
+                ("continuity", "Continuity / Short Board", False),
                 ("resistance", "Resistance Board", False),
             ],
         )
