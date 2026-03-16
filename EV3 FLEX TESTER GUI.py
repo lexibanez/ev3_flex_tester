@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QLabel, QComboBox, QPushButton, QDialog,
+                             QHBoxLayout, QLabel, QComboBox, QPushButton, QDialog, QFileDialog,
                              QScrollArea, QFrame, QProgressBar, QDesktopWidget, QSizePolicy,
                              QGraphicsDropShadowEffect, QGraphicsOpacityEffect, QToolTip)
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QEvent
@@ -10,6 +10,7 @@ import serial
 import json
 import serial.tools.list_ports
 import time
+from datetime import datetime
 from resistance_calibration import (
     DEFAULT_CALIBRATION,
     DEFAULT_CALIBRATION_POINTS,
@@ -622,6 +623,8 @@ class MainWindow(QMainWindow):
         self.calibration = dict(DEFAULT_CALIBRATION)
         self.latest_channel_readings = {}
         self.pending_calibration_voltage = None
+        desktop_dir = os.path.join(os.path.expanduser("~"), "Desktop")
+        self.last_export_dir = desktop_dir if os.path.isdir(desktop_dir) else os.path.expanduser("~")
         self.setWindowTitle("EV3 Flex Tester")
         # Taskbar icon (Windows): use .ico for best quality, or PNG logo
         _icon_paths = [
@@ -1042,6 +1045,32 @@ class MainWindow(QMainWindow):
         add_drop_shadow(self.stop_button, blur=10, y_offset=3, alpha=55)
         self.stop_button.clicked.connect(self.stop_test)
         button_layout.addWidget(self.stop_button)
+
+        self.export_button = QPushButton("Export Results")
+        self.export_button.setFont(get_font(11, bold=True))
+        self.export_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2a2a2a;
+                color: #ffffff;
+                border: 1px solid #555;
+                border-radius: 6px;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                border: 1px solid #666;
+                padding: 12px;
+            }
+            QPushButton:pressed {
+                padding: 8px;
+            }
+            QPushButton:disabled {
+                background-color: #555;
+                color: #888;
+            }
+        """)
+        add_drop_shadow(self.export_button, blur=10, y_offset=3, alpha=55)
+        self.export_button.clicked.connect(self.export_results)
+        button_layout.addWidget(self.export_button)
         
         sidebar_layout.addLayout(button_layout)
         
@@ -1923,24 +1952,7 @@ class MainWindow(QMainWindow):
     def _resistance_color_for_value(self, resistance):
         if resistance is None:
             return None
-
-        lo, hi = self._resistance_reference_range()
-        t = (float(resistance) - lo) / (hi - lo)
-        t = max(0.0, min(1.0, t))
-        stops = [
-            (0.0, "#27AE60"),
-            (0.33, "#F1C40F"),
-            (0.66, "#E67E22"),
-            (1.0, "#E74C3C"),
-        ]
-
-        for idx in range(len(stops) - 1):
-            left_pos, left_color = stops[idx]
-            right_pos, right_color = stops[idx + 1]
-            if t <= right_pos:
-                seg_ratio = 0.0 if right_pos == left_pos else (t - left_pos) / (right_pos - left_pos)
-                return self._interp_hex(left_color, right_color, seg_ratio)
-        return stops[-1][1]
+        return "#E74C3C" if float(resistance) > 10.0 else "#27AE60"
 
     def calibrate_resistance_from_y15(self):
         if not (self.ser and self.ser.is_open):
@@ -2024,6 +2036,200 @@ class MainWindow(QMainWindow):
             elif self.current_test in ("camera_aft_flex", "camera_aft_short"):
                 signal_name = self.camera_aft_flex_signal_names.get(ch_num)
         return signal_name if signal_name else ("Y%d" % ch_num)
+
+    def _current_measurement_mode(self):
+        if self.board_type == "resistance":
+            return "resistance"
+        if self.current_test == "compute_distro":
+            return "short" if self.cdist_short_mode else "continuity"
+        if self.current_test in ("aoa_short", "hover_aft_short", "hover_fore_short", "camera_short", "camera_aft_short"):
+            return "short"
+        return "continuity"
+
+    def _current_flex_label(self):
+        if self.current_test == "compute_distro":
+            return "Compute Distro"
+        if self.current_test in ("aoa", "aoa_short"):
+            return "AoA / Pitot"
+        if self.current_test in ("hover_aft_flex", "hover_aft_short"):
+            return "Hover Aft Flex"
+        if self.current_test in ("hover_fore_flex", "hover_fore_short"):
+            return "Hover Fore Flex"
+        if self.current_test in ("camera_aft_flex", "camera_aft_short"):
+            return "Camera Flex Aft"
+        if self.current_test in ("camera_flex", "camera_short"):
+            return "Camera Flex Fore"
+        return self.test_combo.currentText()
+
+    def _export_test_name(self):
+        test_name = str(self.current_test)
+        measurement_mode = self._current_measurement_mode()
+        if measurement_mode == "short" and test_name.endswith("_short"):
+            return test_name[:-6]
+        if measurement_mode == "continuity" and test_name.endswith("_flex"):
+            return test_name[:-5]
+        return test_name
+
+    def _channel_export_rows(self):
+        rows = []
+        current_keys = [key for key in self.latest_channel_readings.keys() if key[0] == self.current_test]
+        for _, ch_num in sorted(current_keys, key=lambda item: item[1]):
+            reading = self.latest_channel_readings.get((self.current_test, ch_num), {})
+            signal_name = reading.get("signal") or self.channel_display_name(ch_num)
+            status = reading.get("status", "UNKNOWN")
+            try:
+                voltage = float(reading.get("voltage", 0.0))
+            except (TypeError, ValueError):
+                voltage = None
+            resistance = None
+            if self.board_type == "resistance" and "shorted with" not in str(status).lower():
+                resistance = self._resistance_from_voltage(voltage)
+            short_color = reading.get("short_color")
+            row = {
+                "channel_number": int(ch_num),
+                "channel_name": self.channel_display_name(ch_num, signal_name),
+                "signal_name": signal_name,
+                "voltage_v": voltage,
+                "resistance_ohms": resistance,
+                "short_group_color": list(short_color) if isinstance(short_color, (tuple, list)) else None,
+            }
+            if self.board_type == "resistance":
+                status_text = str(status).strip().lower()
+                if "shorted with" in status_text:
+                    condition = "short"
+                elif resistance is None:
+                    condition = "open_circuit"
+                else:
+                    condition = "measured"
+                row["condition"] = condition
+            else:
+                row["status"] = status
+            rows.append(row)
+        return rows
+
+    def _build_export_payload(self):
+        channels = self._channel_export_rows()
+        if not channels:
+            return None
+
+        now = datetime.now().astimezone()
+        measurement_mode = self._current_measurement_mode()
+        export_payload = {
+            "export_version": 1,
+            "timestamp_iso": now.isoformat(),
+            "date": now.strftime("%Y-%m-%d"),
+            "time": now.strftime("%H:%M:%S"),
+            "board_type": self.board_type,
+            "measurement_mode": measurement_mode,
+            "test_key": self.current_test,
+            "test_label": self.test_combo.currentText(),
+            "flex_type": self._current_flex_label(),
+            "channels": channels,
+        }
+
+        if self.board_type == "resistance":
+            export_payload["calibration"] = {
+                "loaded": bool(self.calibration_loaded),
+                "r1": self.calibration.get("r1"),
+                "r2": self.calibration.get("r2"),
+                "demux_r": self.calibration.get("demux_r"),
+                "mux_r": self.calibration.get("mux_r"),
+                "calibration_points": self.calibration.get("calibration_points", []),
+            }
+
+        if self.board_type == "resistance":
+            measured_count = 0
+            open_count = 0
+            short_count = 0
+            measured_resistances = []
+            for channel in channels:
+                condition = str(channel.get("condition", "")).strip().lower()
+                if condition == "measured":
+                    measured_count += 1
+                    if channel.get("resistance_ohms") is not None:
+                        measured_resistances.append(float(channel["resistance_ohms"]))
+                elif condition == "open_circuit":
+                    open_count += 1
+                elif condition == "short":
+                    short_count += 1
+            export_payload["summary"] = {
+                "channel_count": len(channels),
+                "measured_count": measured_count,
+                "open_count": open_count,
+                "short_count": short_count,
+                "min_resistance_ohms": min(measured_resistances) if measured_resistances else None,
+                "max_resistance_ohms": max(measured_resistances) if measured_resistances else None,
+            }
+        else:
+            pass_count = 0
+            fail_count = 0
+            short_count = 0
+            for channel in channels:
+                status_text = str(channel.get("status", "")).strip().lower()
+                if status_text == "pass":
+                    pass_count += 1
+                elif status_text == "fail":
+                    fail_count += 1
+                if "shorted with" in status_text:
+                    short_count += 1
+            export_payload["summary"] = {
+                "channel_count": len(channels),
+                "pass_count": pass_count,
+                "fail_count": fail_count,
+                "short_count": short_count,
+            }
+        return export_payload
+
+    def export_results(self):
+        payload = self._build_export_payload()
+        if not payload:
+            show_styled_choice(
+                self,
+                "Export Error",
+                "No test results are available yet. Run a test first, then export the current results.",
+                [("ok", "OK", True)],
+            )
+            return
+
+        default_name = "%s_%s_%s_%s.json" % (
+            payload["date"].replace("-", ""),
+            payload["time"].replace(":", ""),
+            payload["measurement_mode"],
+            self._export_test_name(),
+        )
+        default_path = os.path.join(self.last_export_dir, default_name)
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Test Results",
+            default_path,
+            "JSON Files (*.json)"
+        )
+        if not file_path:
+            return
+        if not file_path.lower().endswith(".json"):
+            file_path += ".json"
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as export_file:
+                json.dump(payload, export_file, indent=2)
+            saved_dir = os.path.dirname(file_path)
+            if saved_dir:
+                self.last_export_dir = saved_dir
+        except Exception as exc:
+            show_styled_choice(
+                self,
+                "Export Error",
+                "Could not save the export file.\n\n%s" % exc,
+                [("ok", "OK", True)],
+            )
+            return
+
+        show_styled_choice(
+            self,
+            "Export Saved",
+            "Saved test results to:\n\n%s" % file_path,
+            [("ok", "OK", True)],
+        )
     
     def ensure_channel_display(self, ch_num, signal_name=None):
         """Ensure a channel display widget exists for the given channel number"""
