@@ -10,11 +10,11 @@ import compute_distro
 import compute_distro_short
 import hover_aft_flex
 import hover_aft_short
-import hover_fore_flex
-import hover_fore_short
-import camera_flex
+import hover_fwd_flex
+import hover_fwd_short
+import camera_fwd_flex
 import camera_aft_flex
-import camera_short
+import camera_fwd_short
 import camera_aft_short
 
 # ---------------- Command handling ----------------
@@ -79,8 +79,8 @@ def apply_short_threshold():
     aoa_short.set_threshold(short_threshold)
     compute_distro_short.set_threshold(short_threshold)
     hover_aft_short.set_threshold(short_threshold)
-    hover_fore_short.set_threshold(short_threshold)
-    camera_short.set_threshold(short_threshold)
+    hover_fwd_short.set_threshold(short_threshold)
+    camera_fwd_short.set_threshold(short_threshold)
     camera_aft_short.set_threshold(short_threshold)
 
 
@@ -179,11 +179,11 @@ def main():
     compute_distro_short.set_exit_checker(should_exit_check)
     hover_aft_flex.set_exit_checker(should_exit_check)
     hover_aft_short.set_exit_checker(should_exit_check)
-    hover_fore_flex.set_exit_checker(should_exit_check)
-    hover_fore_short.set_exit_checker(should_exit_check)
-    camera_flex.set_exit_checker(should_exit_check)
+    hover_fwd_flex.set_exit_checker(should_exit_check)
+    hover_fwd_short.set_exit_checker(should_exit_check)
+    camera_fwd_flex.set_exit_checker(should_exit_check)
     camera_aft_flex.set_exit_checker(should_exit_check)
-    camera_short.set_exit_checker(should_exit_check)
+    camera_fwd_short.set_exit_checker(should_exit_check)
     camera_aft_short.set_exit_checker(should_exit_check)
     apply_short_threshold()
 
@@ -208,15 +208,15 @@ def main():
         elif current_test == "hover_aft_short":
             hover_aft_short.run()
         elif current_test == "hover_fore_flex":
-            hover_fore_flex.run()
+            hover_fwd_flex.run()
         elif current_test == "hover_fore_short":
-            hover_fore_short.run()
+            hover_fwd_short.run()
         elif current_test == "camera_flex":
-            camera_flex.run()
+            camera_fwd_flex.run()
         elif current_test == "camera_aft_flex":
             camera_aft_flex.run()
         elif current_test == "camera_short":
-            camera_short.run()
+            camera_fwd_short.run()
         elif current_test == "camera_aft_short":
             camera_aft_short.run()
         else:  # Default to AoA

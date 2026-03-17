@@ -46,17 +46,17 @@ CAMERA_AFT_CHANNELS = [
     (2, 1, "GND"),
     (3, 1, "GND"),
     (4, 15, "GMSL2_SA_N"),
-    (15, 22, "BLOWER_SA_A"), #
+    (5, 21, "BLOWER_SA_A"), #
     (6, 13, "GMSL2_SA_P"),
-    (13, 24, "BLOWER_SA_B"), #
+    (7, 23, "BLOWER_SA_B"), #
     (8, 1, "GND"),
-    (11, 26, "BLOWER_SA_C"), #
+    (9, 25, "BLOWER_SA_C"), #
     (10, 19, "V_CAM_SA"),
-    (9, 25, "BLOWER_PA_C"), #
+    (11, 26, "BLOWER_PA_C"), #
     (12, 1, "GND"),
-    (7, 23, "BLOWER_PA_B"), #
+    (13, 22, "BLOWER_PA_B"), #
     (14, 5, "GMSL2_PA_N"),
-    (5, 21, "BLOWER_PA_A"), #
+    (15, 24, "BLOWER_PA_A"), #
     (16, 3, "GMSL2_PA_P"),
     (17, 1, "GND"),
     (18, 1, "GND"),

@@ -1269,14 +1269,8 @@ class MainWindow(QMainWindow):
         self.channels_scroll_area.setWidget(self.channels_widget)
         data_bubble_layout.addWidget(self.channels_scroll_area)
 
-        # Camera Fore Short alias warning (shown below channels in Camera Fore + Short mode)
-        self.camera_short_alias_warning = QLabel(
-            'WARNING, this test is unable to detect shorts between '
-            '<span style="color:#F73B30; font-weight:700;">BLOWER_PF_A</span> and '
-            '<span style="color:#F73B30; font-weight:700;">V_CAM_SF</span> '
-            'due an demux alias pair. If issues persist, test these pins with a multimeter '
-            'to verify any shorts.'
-        )
+        # Camera short alias warning (shown below channels in Camera Short mode)
+        self.camera_short_alias_warning = QLabel("")
         self.camera_short_alias_warning.setFont(get_font(10, bold=True))
         self.camera_short_alias_warning.setStyleSheet("color: #FED541; background: transparent; border: none;")
         self.camera_short_alias_warning.setWordWrap(True)
@@ -1708,7 +1702,7 @@ class MainWindow(QMainWindow):
         
         main_vbox.addWidget(top_row, stretch=1)
         
-        # Bottom half: GND section (Aft always; Fore only for camera_flex, hidden for camera_short)
+        # Bottom half: GND section (shown for flex continuity views only)
         gnd_section = QWidget()
         gnd_section.setStyleSheet("background: transparent; border-top: 2px solid #555; padding-top: 8px;")
         gnd_vbox = QVBoxLayout(gnd_section)
@@ -1727,10 +1721,10 @@ class MainWindow(QMainWindow):
         gnd_vbox.addLayout(self.camera_gnd_layout)
         main_vbox.addWidget(gnd_section, stretch=1)
         self.camera_gnd_section = gnd_section
-        # Fore: hide GND section for camera_short only
-        if not is_aft:
-            gnd_section.setVisible(not self.flex_short_mode)
-        
+        # Hide the GND section for both fore short and aft short so the short layout matches.
+        if self.current_test in ("camera_short", "camera_aft_short"):
+            gnd_section.setVisible(False)
+
         self.camera_flex_main_container = main
         self.two_column_container = main
         self.channels_layout.addWidget(main)
@@ -1822,6 +1816,15 @@ class MainWindow(QMainWindow):
     def _sync_short_threshold(self):
         if self.ser and self.ser.is_open:
             self.send_command("short_threshold:%s" % self._current_short_threshold())
+
+    def _should_show_voltage_for_current_test(self):
+        if self.current_test == "compute_distro":
+            return not self.cdist_short_mode
+        if self.current_test == "camera_aft_short":
+            return True
+        if self.current_test in ("aoa_short", "hover_aft_short", "hover_fore_short", "camera_short"):
+            return False
+        return True
 
     def _store_latest_channel_reading(self, test_name, ch_num, signal, voltage, status, short_color):
         self.latest_channel_readings[(test_name, ch_num)] = {
@@ -2675,7 +2678,7 @@ class MainWindow(QMainWindow):
                             short_color = None
                             if is_short_format:
                                 shorted_with = ch_data.get("shorted_with", [])
-                                voltage = 0
+                                voltage = ch_data.get("voltage", 0)
                                 if not shorted_with:
                                     status = "PASS"
                                 else:
@@ -2823,7 +2826,10 @@ class MainWindow(QMainWindow):
             if self.camera_aft_mode:
                 self.current_test = "camera_aft_short" if self.flex_short_mode else "camera_aft_flex"
                 signal_names = self.camera_aft_flex_signal_names
-                channels_to_show = list(range(1, 21))  # 20 channels (Aft)
+                if self.flex_short_mode:
+                    channels_to_show = sorted(self.camera_aft_flex_pa_channels + self.camera_aft_flex_sa_channels)
+                else:
+                    channels_to_show = list(range(1, 21))  # 20 channels (Aft)
             else:
                 self.current_test = "camera_short" if self.flex_short_mode else "camera_flex"
                 signal_names = self.camera_short_signal_names if self.flex_short_mode else self.camera_flex_signal_names
@@ -2863,21 +2869,23 @@ class MainWindow(QMainWindow):
             self.cdist_mode_row.setVisible(True)
             self.flex_mode_row.setVisible(False)
             self.camera_fore_aft_row.setVisible(False)
-            self.voltage_header_bubble.setVisible(not self.cdist_short_mode)
+            show_voltage = self._should_show_voltage_for_current_test()
+            self.voltage_header_bubble.setVisible(show_voltage)
             if hasattr(self, "header_bubbles_column2") and self.header_bubbles_column2:
-                self.header_bubbles_column2[1].setVisible(not self.cdist_short_mode)
+                self.header_bubbles_column2[1].setVisible(show_voltage)
             for w in self.channel_widgets.values():
-                w.set_voltage_visible(not self.cdist_short_mode)
+                w.set_voltage_visible(show_voltage)
         elif selected_text in ("AoA/Pitot Test", "Hover Fore Flex Test", "Hover Aft Flex Test", "Camera Flex Test"):
             self.cdist_mode_row.setVisible(False)
             self.flex_mode_row.setVisible(True)
             self.flex_continuity_btn.setChecked(not self.flex_short_mode)
             self.flex_short_btn.setChecked(self.flex_short_mode)
-            self.voltage_header_bubble.setVisible(not self.flex_short_mode)
+            show_voltage = self._should_show_voltage_for_current_test()
+            self.voltage_header_bubble.setVisible(show_voltage)
             if hasattr(self, "header_bubbles_column2") and self.header_bubbles_column2:
-                self.header_bubbles_column2[1].setVisible(not self.flex_short_mode)
+                self.header_bubbles_column2[1].setVisible(show_voltage)
             for w in self.channel_widgets.values():
-                w.set_voltage_visible(not self.flex_short_mode)
+                w.set_voltage_visible(show_voltage)
             if selected_text == "Camera Flex Test":
                 self.camera_fore_aft_row.setVisible(True)
                 self.camera_fore_btn.setChecked(not self.camera_aft_mode)
@@ -2910,13 +2918,32 @@ class MainWindow(QMainWindow):
             print("Test change: not running, so not sending command (test will start when Start is clicked)")
 
     def _update_camera_short_alias_warning(self):
-        """Show warning only for Camera Fore + Short mode."""
+        """Show the appropriate alias-pair warning for Camera Short mode."""
         show_warning = (
             self.test_combo.currentText() == "Camera Flex Test"
-            and (not self.camera_aft_mode)
             and self.flex_short_mode
         )
-        self.camera_short_alias_warning.setVisible(show_warning)
+        if not show_warning:
+            self.camera_short_alias_warning.setVisible(False)
+            return
+
+        if self.camera_aft_mode:
+            self.camera_short_alias_warning.setText(
+                'WARNING, this test is unable to detect shorts between '
+                '<span style="color:#F73B30; font-weight:700;">BLOWER_SA_A</span> and '
+                '<span style="color:#F73B30; font-weight:700;">V_CAM_PA</span> '
+                'due to demux alias pairs. If issues persist, test these pins with a multimeter '
+                'to verify any shorts.'
+            )
+        else:
+            self.camera_short_alias_warning.setText(
+                'WARNING, this test is unable to detect shorts between '
+                '<span style="color:#F73B30; font-weight:700;">BLOWER_PF_A</span> and '
+                '<span style="color:#F73B30; font-weight:700;">V_CAM_SF</span> '
+                'due to a demux alias pair. If issues persist, test these pins with a multimeter '
+                'to verify any shorts.'
+            )
+        self.camera_short_alias_warning.setVisible(True)
     
     def _set_flex_mode(self, mode):
         """Switch between Continuity and Short for AoA, Camera, Hover Fore, or Hover Aft."""
@@ -2940,11 +2967,12 @@ class MainWindow(QMainWindow):
             return  # on_test_change already updated visibility and sends command if running
         else:
             return
-        self.voltage_header_bubble.setVisible(not self.flex_short_mode)
+        show_voltage = self._should_show_voltage_for_current_test()
+        self.voltage_header_bubble.setVisible(show_voltage)
         if hasattr(self, "header_bubbles_column2") and self.header_bubbles_column2:
-            self.header_bubbles_column2[1].setVisible(not self.flex_short_mode)
+            self.header_bubbles_column2[1].setVisible(show_voltage)
         for w in self.channel_widgets.values():
-            w.set_voltage_visible(not self.flex_short_mode)
+            w.set_voltage_visible(show_voltage)
         if self.ser and self.ser.is_open and self.updating:
             self.send_command("test:%s" % self.current_test)
             time.sleep(0.2)

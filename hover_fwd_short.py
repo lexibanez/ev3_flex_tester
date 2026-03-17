@@ -37,7 +37,7 @@ def set_exit_checker(f):
     global should_exit
     should_exit = f
 
-# Same pin matching as hover_fore_flex: (demux_net, mux_net, signal_name)
+# Same pin matching as hover_fwd_flex: (demux_net, mux_net, signal_name)
 CHANS = [
     (1, 4, "T1_IN_P"),
     (3, 2, "T1_IN_N"),

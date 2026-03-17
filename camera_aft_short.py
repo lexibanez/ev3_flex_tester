@@ -43,24 +43,24 @@ CHANS = [
     (2, 1, "GND"),
     (3, 1, "GND"),
     (4, 15, "GMSL2_SA_N"),
-    (15, 22, "BLOWER_SA_A"),
+    (5, 21, "BLOWER_SA_A"),
     (6, 13, "GMSL2_SA_P"),
-    (13, 24, "BLOWER_SA_B"),
+    (7, 23, "BLOWER_SA_B"),
     (8, 1, "GND"),
-    (11, 26, "BLOWER_SA_C"),
+    (9, 25, "BLOWER_SA_C"),
     (10, 19, "V_CAM_SA"),
-    (9, 25, "BLOWER_PA_C"),
+    (11, 26, "BLOWER_PA_C"),
     (12, 1, "GND"),
-    (7, 23, "BLOWER_PA_B"),
+    (13, 22, "BLOWER_PA_B"),
     (14, 5, "GMSL2_PA_N"),
-    (5, 21, "BLOWER_PA_A"),
+    (15, 24, "BLOWER_PA_A"),
     (16, 3, "GMSL2_PA_P"),
     (17, 1, "GND"),
     (18, 1, "GND"),
     (19, 1, "GND"),
     (20, 9, "V_CAM_PA"),
 ]
-THR = 1.5
+THR = 0.1
 SETTLE_MS = 4
 VDIV_SCALE = 101.0 / 100.0
 
@@ -76,23 +76,22 @@ CH_BY_DNET = {}
 for i, (d_net, _, _) in enumerate(CHANS, 1):
     CH_BY_DNET.setdefault(d_net, []).append(i)
 
-# Camera AFT demux alias pair to ignore in short detection.
-ALIAS_DNET_PAIRS = {
-    5: 20,
-    20: 5,
-}
+# Camera AFT can alias between nets that share the same DEMUX Y through
+# the tester mapping (1<->16, 2<->17, ... 5<->20).
+def alias_dnet(net):
+    return net + 15 if net <= 15 else net - 15
 
 IGNORE_MUX_BY_CH = {}
 for ch_num, (d_net, _, _) in enumerate(CHANS, 1):
-    alias_net = ALIAS_DNET_PAIRS.get(d_net)
+    alias_net = alias_dnet(d_net)
     ignore = set()
-    if alias_net is not None:
-        for alias_ch in CH_BY_DNET.get(alias_net, []):
-            ignore.add(CHANS[alias_ch - 1][1])  # alias channel's mux_net
+    for alias_ch in CH_BY_DNET.get(alias_net, []):
+        ignore.add(CHANS[alias_ch - 1][1])  # alias channel's mux_net
     IGNORE_MUX_BY_CH[ch_num] = ignore
 
 def do_scan():
     shorts = {i: set() for i in range(1, len(CHANS) + 1)}
+    voltages = {i: 0.0 for i in range(1, len(CHANS) + 1)}
     for ch_num, (d_net, m_net, _) in enumerate(CHANS, 1):
         if should_exit and should_exit():
             return None
@@ -108,6 +107,8 @@ def do_scan():
             v0 = (raw0 / 65535) * 3.3 * VDIV_SCALE
             v1 = (raw1 / 65535) * 3.3 * VDIV_SCALE
             expect_high_v0 = m_net <= 15 and y == m_net
+            if expect_high_v0:
+                voltages[ch_num] = max(voltages[ch_num], v0)
             if v0 >= THR and not expect_high_v0:
                 if y in ignore_mux_nets:
                     continue
@@ -116,6 +117,8 @@ def do_scan():
                     shorts[other].add(ch_num)
             net_hi = 15 + y
             expect_high_v1 = 16 <= m_net <= 30 and m_net == net_hi
+            if expect_high_v1:
+                voltages[ch_num] = max(voltages[ch_num], v1)
             if v1 >= THR and not expect_high_v1:
                 if net_hi in ignore_mux_nets:
                     continue
@@ -123,7 +126,7 @@ def do_scan():
                     shorts[ch_num].add(other)
                     shorts[other].add(ch_num)
     return [
-        {"channel": i, "signal": CHANS[i - 1][2], "shorted_with": sorted(shorts[i])}
+        {"channel": i, "signal": CHANS[i - 1][2], "voltage": round(voltages[i], 3), "shorted_with": sorted(shorts[i])}
         for i in range(1, len(CHANS) + 1)
     ]
 

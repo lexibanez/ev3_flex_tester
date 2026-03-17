@@ -49,11 +49,11 @@ CAMERA_FLEX_CHANNELS = [
     (2, 1, "GND4"),
     (3, 1, "GND7"),
     (4, 5, "GMSL2_PF_N"),
-    (5, 22, "BLOWER_PF_A"),     # MUX 22
+    (5, 22, "BLOWER_PF_A"),   #  # MUX 22
     (6, 3, "GMSL2_PF_P"),
-    (7, 24, "BLOWER_PF_B"),     # MUX 24
+    (7, 24, "BLOWER_PF_B"),   #  # MUX 24
     (8, 1, "GND3"),
-    (9, 26, "BLOWER_PF_C"),     # MUX 26
+    (9, 26, "BLOWER_PF_C"),   #  # MUX 26
     (10, 9, "V_CAM_PF"),
     (11, 25, "BLOWER_SF_C"),    # MUX 25
     (12, 1, "GND2"),
