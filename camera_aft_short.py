@@ -39,30 +39,34 @@ def set_exit_checker(f):
 
 # Same channel numbers and signal names as camera_aft_flex CAMERA_AFT_CHANNELS
 CHANS = [
-    (10, 9, "V_CAM_PA"),
-    (5, 22, "BLOWER_PA_A"),
-    (6, 3, "GMSL2_PA_P"),
-    (7, 24, "BLOWER_PA_B"),
-    (4, 5, "GMSL2_PA_N"),
-    (9, 26, "BLOWER_PA_C"),
-    (8, 1, "GND"),
     (1, 1, "GND"),
-    (20, 19, "V_CAM_SA"),
-    (11, 25, "BLOWER_SA_C"),
+    (2, 1, "GND"),
+    (3, 1, "GND"),
+    (4, 15, "GMSL2_SA_N"),
+    (15, 22, "BLOWER_SA_A"),
+    (6, 13, "GMSL2_SA_P"),
+    (13, 24, "BLOWER_SA_B"),
+    (8, 1, "GND"),
+    (11, 26, "BLOWER_SA_C"),
+    (10, 19, "V_CAM_SA"),
+    (9, 25, "BLOWER_PA_C"),
     (12, 1, "GND"),
-    (13, 23, "BLOWER_SA_B"),
-    (16, 13, "GMSL2_SA_P"),
-    (15, 21, "BLOWER_SA_A"),
-    (14, 15, "GMSL2_SA_N"),
+    (7, 23, "BLOWER_PA_B"),
+    (14, 5, "GMSL2_PA_N"),
+    (5, 21, "BLOWER_PA_A"),
+    (16, 3, "GMSL2_PA_P"),
     (17, 1, "GND"),
     (18, 1, "GND"),
     (19, 1, "GND"),
-    (2, 1, "GND"),
-    (3, 1, "GND"),
+    (20, 9, "V_CAM_PA"),
 ]
 THR = 1.5
 SETTLE_MS = 4
 VDIV_SCALE = 101.0 / 100.0
+
+def set_threshold(volts):
+    global THR
+    THR = float(volts)
 
 MUX_NET_TO_CH = {}
 for i, (_, m_net, _) in enumerate(CHANS, 1):

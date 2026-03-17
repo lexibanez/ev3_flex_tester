@@ -47,6 +47,10 @@ THR = 1.5
 # Voltage divider R65=1k, R67=100k: scale ADC voltage for true MUX voltage
 VDIV_SCALE = 101.0 / 100.0
 
+def set_threshold(volts):
+    global THR
+    THR = float(volts)
+
 def do_one_scan():
     shorts = {c: set() for c in range(1, 31)}
     for d in range(1, 16):

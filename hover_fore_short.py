@@ -48,6 +48,10 @@ CHANS = [
 THR = 1.5
 VDIV_SCALE = 101.0 / 100.0
 
+def set_threshold(volts):
+    global THR
+    THR = float(volts)
+
 # MUX net -> channel number (only our 5 MUXs)
 MUX_TO_CH = {m: i for i, (_, m, _) in enumerate(CHANS, 1)}
 

@@ -65,6 +65,10 @@ THR = 1.5  # Volts; raise to 2.0 or 2.2 if noise causes false shorts
 SETTLE_MS = 4  # Delay after set_mux before reading; increase if readings are unstable
 VDIV_SCALE = 101.0 / 100.0
 
+def set_threshold(volts):
+    global THR
+    THR = float(volts)
+
 MUX_NET_TO_CH = {}
 for i, (_, m_net, _) in enumerate(CHANS, 1):
     MUX_NET_TO_CH.setdefault(m_net, []).append(i)

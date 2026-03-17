@@ -688,8 +688,8 @@ class MainWindow(QMainWindow):
         
         # Left sidebar
         sidebar = QWidget()
-        sidebar.setMinimumWidth(220)
-        sidebar.setMaximumWidth(220)
+        sidebar.setMinimumWidth(260)
+        sidebar.setMaximumWidth(260)
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(10, 10, 10, 10)
         sidebar_layout.setSpacing(15)
@@ -806,6 +806,7 @@ class MainWindow(QMainWindow):
         self.flex_short_mode = False
 
         self.board_type = "continuity"
+        self.measurement_mode = "continuity_short"
         self.resistance_enabled = False
         self.calibration_loaded = False
         self.calibrate_btn = QPushButton("Calibrate")
@@ -920,6 +921,45 @@ class MainWindow(QMainWindow):
         self.cdist_mode_row.setVisible(False)
         self.cdist_short_mode = False
         sidebar_layout.addWidget(self.change_board_type_btn)
+        self.measurement_mode_row = QWidget()
+        self.measurement_mode_row.setStyleSheet("background: transparent;")
+        measurement_mode_layout = QHBoxLayout(self.measurement_mode_row)
+        measurement_mode_layout.setContentsMargins(0, 6, 0, 0)
+        measurement_mode_layout.setSpacing(8)
+        self.measurement_continuity_btn = QPushButton("Continuity/Short")
+        self.measurement_resistance_btn = QPushButton("Resistance")
+        for btn in (self.measurement_continuity_btn, self.measurement_resistance_btn):
+            btn.setFont(get_font(10))
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2a2a2a;
+                    color: #ffffff;
+                    border: 1px solid #555;
+                    border-radius: 6px;
+                    padding: 6px 10px;
+                }
+                QPushButton:hover {
+                    border: 1px solid #666;
+                }
+                QPushButton:checked {
+                    background-color: #FED541;
+                    color: #1a1a1a;
+                    border: 2px solid #FFE27A;
+                    font-weight: 700;
+                }
+                QPushButton:disabled {
+                    background-color: #1f1f1f;
+                    color: #777777;
+                    border: 1px solid #3a3a3a;
+                }
+            """)
+            btn.setCheckable(True)
+        self.measurement_continuity_btn.setChecked(True)
+        self.measurement_continuity_btn.clicked.connect(lambda: self._set_measurement_mode("continuity_short"))
+        self.measurement_resistance_btn.clicked.connect(lambda: self._set_measurement_mode("resistance"))
+        measurement_mode_layout.addWidget(self.measurement_continuity_btn)
+        measurement_mode_layout.addWidget(self.measurement_resistance_btn)
+        sidebar_layout.addWidget(self.measurement_mode_row)
         sidebar_layout.addWidget(self.calibrate_btn)
         
         # Spacer
@@ -1360,12 +1400,12 @@ class MainWindow(QMainWindow):
         }
         # Camera Aft Flex (P52B): numbered to match Camera Flex tester DEMUX order
         self.camera_aft_flex_signal_names = {
-            1: "GND", 2: "GND", 3: "GND", 4: "GMSL2_SF_N", 5: "BLOWER_SF_A", 6: "GMSL2_SF_P",
-            7: "BLOWER_SF_B", 8: "GND", 9: "BLOWER_SF_C", 10: "V_CAM_SF", 11: "BLOWER_PF_C", 12: "GND",
-            13: "BLOWER_PF_B", 14: "GMSL2_PF_N", 15: "BLOWER_PF_A", 16: "GMSL2_PF_P", 17: "GND", 18: "GND", 19: "GND", 20: "V_CAM_PF"
+            1: "GND", 2: "GND", 3: "GND", 4: "GMSL2_SA_N", 5: "BLOWER_SA_A", 6: "GMSL2_SA_P",
+            7: "BLOWER_SA_B", 8: "GND", 9: "BLOWER_SA_C", 10: "V_CAM_SA", 11: "BLOWER_PA_C", 12: "GND",
+            13: "BLOWER_PA_B", 14: "GMSL2_PA_N", 15: "BLOWER_PA_A", 16: "GMSL2_PA_P", 17: "GND", 18: "GND", 19: "GND", 20: "V_CAM_PA"
         }
-        self.camera_aft_flex_pa_channels = (4, 5, 6, 7, 9, 10)
-        self.camera_aft_flex_sa_channels = (11, 13, 14, 15, 16, 20)
+        self.camera_aft_flex_pa_channels = (11, 13, 14, 15, 16, 20)
+        self.camera_aft_flex_sa_channels = (4, 5, 6, 7, 9, 10)
         self.camera_aft_flex_gnd_channels = (1, 2, 3, 8, 12, 17, 18, 19)
         self.camera_aft_mode = False  # False = Fore (P52A), True = Aft (P52B)
         
@@ -1585,7 +1625,7 @@ class MainWindow(QMainWindow):
         self.channels_layout.addStretch()
     
     def _setup_camera_flex_quartered_layout(self):
-        """Camera Flex: PF/PA top-left, SF/SA top-right (visible divider), GND bottom. Fore=PF/SF, Aft=PA/SA."""
+        """Camera Flex: PF/PA top-left, SF/SA top-right (visible divider), GND bottom."""
         def _make_header_row():
             row = QWidget()
             row.setStyleSheet("background: transparent;")
@@ -1606,8 +1646,8 @@ class MainWindow(QMainWindow):
             return row
         
         is_aft = self.camera_aft_mode
-        col1_label = "PA" if is_aft else "Port Cam"
-        col2_label = "SA" if is_aft else "Starboard Cam"
+        col1_label = "Port Cam"
+        col2_label = "Starboard Cam"
         
         main = QWidget()
         main.setStyleSheet("background: transparent;")
@@ -1760,6 +1800,29 @@ class MainWindow(QMainWindow):
             return None
         return round(resistance, 1)
 
+    def _continuity_pass_threshold(self):
+        if self.board_type == "resistance" and not self.resistance_enabled:
+            return 0.1
+        return 1.5
+
+    def _normalize_continuity_status(self, status, voltage):
+        if str(status).upper() == "N/A":
+            return status
+        try:
+            voltage_value = float(voltage)
+        except (TypeError, ValueError):
+            return status
+        return "PASS" if voltage_value >= self._continuity_pass_threshold() else "FAIL"
+
+    def _current_short_threshold(self):
+        if self.board_type == "resistance" and not self.resistance_enabled:
+            return 0.1
+        return 1.5
+
+    def _sync_short_threshold(self):
+        if self.ser and self.ser.is_open:
+            self.send_command("short_threshold:%s" % self._current_short_threshold())
+
     def _store_latest_channel_reading(self, test_name, ch_num, signal, voltage, status, short_color):
         self.latest_channel_readings[(test_name, ch_num)] = {
             "signal": signal,
@@ -1773,7 +1836,9 @@ class MainWindow(QMainWindow):
             reading = self.latest_channel_readings.get((self.current_test, ch_num))
             if not reading:
                 continue
-            resistance = None if "shorted with" in str(reading["status"]).lower() else self._resistance_from_voltage(reading["voltage"])
+            resistance = None
+            if self.resistance_enabled and "shorted with" not in str(reading["status"]).lower():
+                resistance = self._resistance_from_voltage(reading["voltage"])
             display = self.channel_display_name(ch_num, reading.get("signal"))
             widget.update_data(
                 reading.get("voltage", 0),
@@ -1857,7 +1922,7 @@ class MainWindow(QMainWindow):
         return None
 
     def _apply_board_type_ui(self):
-        self.resistance_enabled = (self.board_type == "resistance")
+        self.resistance_enabled = (self.board_type == "resistance" and self.measurement_mode == "resistance")
         try:
             self.resistance_header_bubble.setVisible(self.resistance_enabled)
         except Exception:
@@ -1867,26 +1932,37 @@ class MainWindow(QMainWindow):
                 self.resistance_header_bubble2.setVisible(self.resistance_enabled)
             except Exception:
                 pass
+        self.measurement_continuity_btn.setChecked(self.measurement_mode != "resistance")
+        self.measurement_resistance_btn.setChecked(self.measurement_mode == "resistance")
+        resistance_available = (self.board_type == "resistance")
+        self.measurement_resistance_btn.setEnabled(resistance_available)
+        self.measurement_resistance_btn.setToolTip("" if resistance_available else "Resistance measurements require a resistance spec board.")
         show_mode_buttons = not self.resistance_enabled
         self.flex_mode_row.setVisible(show_mode_buttons and self.test_combo.currentText() in ("AoA/Pitot Test", "Hover Fore Flex Test", "Hover Aft Flex Test", "Camera Flex Test"))
         self.cdist_mode_row.setVisible(show_mode_buttons and self.test_combo.currentText() == "Compute Distro Test")
         for w in self.channel_widgets.values():
             w.set_resistance_visible(self.resistance_enabled)
-        self.calibrate_btn.setVisible(self.resistance_enabled)
-        self.change_board_type_btn.setText("Current Board Type: %s" % ("Resistance" if self.resistance_enabled else "Continuity / Short"))
+        self.calibrate_btn.setVisible(self.board_type == "resistance")
+        self.change_board_type_btn.setText("Board: %s" % ("Resistance" if self.board_type == "resistance" else "Continuity / Short"))
         self.headers_widget.updateGeometry()
         self.header_container.updateGeometry()
         self.channels_widget.updateGeometry()
         self._refresh_visible_channel_resistances()
 
     def _update_board_type_status_label(self):
-        if self.board_type != "resistance":
-            return
-        if self.calibration_loaded:
-            self.status_label.setText("Resistance board selected. Using Pico calibration.")
-            self.status_label.setStyleSheet("color: #0d8c5a;")
+        if self.board_type == "resistance":
+            if self.resistance_enabled:
+                if self.calibration_loaded:
+                    self.status_label.setText("Resistance board selected. Resistance mode active using Pico calibration.")
+                    self.status_label.setStyleSheet("color: #0d8c5a;")
+                else:
+                    self.status_label.setText("Resistance board selected. Resistance mode active, calibration required.")
+                    self.status_label.setStyleSheet("color: #FED541;")
+            else:
+                self.status_label.setText("Resistance board selected. Continuity/short mode active.")
+                self.status_label.setStyleSheet("color: #0d8c5a;")
         else:
-            self.status_label.setText("Resistance board selected. Calibration required.")
+            self.status_label.setText("Continuity / short board selected. Resistance measurements are disabled.")
             self.status_label.setStyleSheet("color: #FED541;")
 
     def _check_calibration_after_board_switch(self):
@@ -1898,16 +1974,33 @@ class MainWindow(QMainWindow):
 
     def _set_board_type(self, board_type):
         self.board_type = board_type
+        self.measurement_mode = "continuity_short"
         self._apply_board_type_ui()
         self._update_board_type_status_label()
+        self._sync_short_threshold()
         if self.board_type == "resistance" and self.ser and self.ser.is_open and not self.calibration_loaded:
             QTimer.singleShot(0, self._check_calibration_after_board_switch)
+
+    def _set_measurement_mode(self, mode):
+        if mode == "resistance" and self.board_type != "resistance":
+            self.measurement_mode = "continuity_short"
+        else:
+            self.measurement_mode = mode
+        if self.measurement_mode == "resistance":
+            self.flex_short_mode = False
+            self.cdist_short_mode = False
+        self._apply_board_type_ui()
+        self._update_board_type_status_label()
+        self._sync_short_threshold()
+        if self.resistance_enabled and self.ser and self.ser.is_open and not self.calibration_loaded:
+            QTimer.singleShot(0, self._check_calibration_after_board_switch)
+        self.on_test_change(self.test_combo.currentText())
 
     def prompt_change_board_type(self):
         choice = show_styled_choice(
             self,
             "Board Type",
-            "Choose which board is connected. Resistance mode shows calibrated ohms and color-only status. Continuity/short mode keeps the default tester behavior.",
+            "Choose which board is connected. Resistance boards can run either resistance measurements or continuity/short from the sidebar. Continuity / short boards stay locked out of resistance mode.",
             [
                 ("continuity", "Continuity / Short Board", False),
                 ("resistance", "Resistance Board", False),
@@ -1921,7 +2014,7 @@ class MainWindow(QMainWindow):
         choice = show_styled_choice(
             self,
             "Board Type",
-            "Are you using the high accuracy resistance measurement board or the normal continuity / short board?",
+            "Which board is connected? Resistance boards can still use continuity/short in the sidebar, while continuity / short boards cannot use resistance mode.",
             [
                 ("continuity", "Continuity / Short Board", False),
                 ("resistance", "Resistance Board", False),
@@ -2024,29 +2117,36 @@ class MainWindow(QMainWindow):
 
     def channel_display_name(self, ch_num, signal_name=None):
         """Return display label for a channel (signal name only)."""
-        if signal_name is None:
-            if self.current_test == "compute_distro":
-                signal_name = self.compute_distro_signal_names.get(ch_num)
-            elif self.current_test in ("aoa", "aoa_short"):
-                signal_name = self.aoa_signal_names.get(ch_num)
-            elif self.current_test == "hover_aft_flex":
-                signal_name = self.hover_aft_flex_signal_names.get(ch_num)
-            elif self.current_test == "hover_aft_short":
-                signal_name = self.hover_aft_flex_signal_names.get(ch_num)
-            elif self.current_test == "hover_fore_flex":
-                signal_name = self.hover_fore_flex_signal_names.get(ch_num)
-            elif self.current_test == "hover_fore_short":
-                signal_name = self.hover_fore_flex_signal_names.get(ch_num)
-            elif self.current_test == "camera_flex":
-                signal_name = self.camera_flex_signal_names.get(ch_num)
-            elif self.current_test == "camera_short":
-                signal_name = self.camera_short_signal_names.get(ch_num)
-            elif self.current_test in ("camera_aft_flex", "camera_aft_short"):
-                signal_name = self.camera_aft_flex_signal_names.get(ch_num)
+        expected_signal_name = None
+        if self.current_test == "compute_distro":
+            expected_signal_name = self.compute_distro_signal_names.get(ch_num)
+        elif self.current_test in ("aoa", "aoa_short"):
+            expected_signal_name = self.aoa_signal_names.get(ch_num)
+        elif self.current_test == "hover_aft_flex":
+            expected_signal_name = self.hover_aft_flex_signal_names.get(ch_num)
+        elif self.current_test == "hover_aft_short":
+            expected_signal_name = self.hover_aft_flex_signal_names.get(ch_num)
+        elif self.current_test == "hover_fore_flex":
+            expected_signal_name = self.hover_fore_flex_signal_names.get(ch_num)
+        elif self.current_test == "hover_fore_short":
+            expected_signal_name = self.hover_fore_flex_signal_names.get(ch_num)
+        elif self.current_test == "camera_flex":
+            expected_signal_name = self.camera_flex_signal_names.get(ch_num)
+        elif self.current_test == "camera_short":
+            expected_signal_name = self.camera_short_signal_names.get(ch_num)
+        elif self.current_test in ("camera_aft_flex", "camera_aft_short"):
+            expected_signal_name = self.camera_aft_flex_signal_names.get(ch_num)
+
+        # For camera tests, prefer the GUI's per-test mapping over the Pico JSON label so
+        # Fore/Aft naming stays correct even if both tests reuse the same pin assignments.
+        if self.current_test in ("camera_flex", "camera_short", "camera_aft_flex", "camera_aft_short"):
+            signal_name = expected_signal_name
+        elif signal_name is None:
+            signal_name = expected_signal_name
         return signal_name if signal_name else ("Y%d" % ch_num)
 
     def _current_measurement_mode(self):
-        if self.board_type == "resistance":
+        if self.resistance_enabled:
             return "resistance"
         if self.current_test == "compute_distro":
             return "short" if self.cdist_short_mode else "continuity"
@@ -2090,7 +2190,7 @@ class MainWindow(QMainWindow):
             except (TypeError, ValueError):
                 voltage = None
             resistance = None
-            if self.board_type == "resistance" and "shorted with" not in str(status).lower():
+            if self.resistance_enabled and "shorted with" not in str(status).lower():
                 resistance = self._resistance_from_voltage(voltage)
             short_color = reading.get("short_color")
             row = {
@@ -2101,7 +2201,7 @@ class MainWindow(QMainWindow):
                 "resistance_ohms": resistance,
                 "short_group_color": list(short_color) if isinstance(short_color, (tuple, list)) else None,
             }
-            if self.board_type == "resistance":
+            if self.resistance_enabled:
                 status_text = str(status).strip().lower()
                 if "shorted with" in status_text:
                     condition = "short"
@@ -2135,7 +2235,7 @@ class MainWindow(QMainWindow):
             "channels": channels,
         }
 
-        if self.board_type == "resistance":
+        if self.resistance_enabled:
             export_payload["calibration"] = {
                 "loaded": bool(self.calibration_loaded),
                 "r1": self.calibration.get("r1"),
@@ -2145,7 +2245,7 @@ class MainWindow(QMainWindow):
                 "calibration_points": self.calibration.get("calibration_points", []),
             }
 
-        if self.board_type == "resistance":
+        if self.resistance_enabled:
             measured_count = 0
             open_count = 0
             short_count = 0
@@ -2391,24 +2491,96 @@ class MainWindow(QMainWindow):
             widget = self.channel_widgets[ch_num]
             self.channels_layout.insertWidget(self.channels_layout.count() - 1, widget)
     
-    def auto_detect_serial(self, baud=115200, keywords=("Arduino", "Teensy", "CH340", "Silicon", "USB Serial", "USB")):
+    def _is_excluded_serial_port(self, port_info):
+        """Filter out ports that are very unlikely to be the tester board."""
+        desc = str(getattr(port_info, "description", "") or "").lower()
+        manufacturer = str(getattr(port_info, "manufacturer", "") or "").lower()
+        product = str(getattr(port_info, "product", "") or "").lower()
+        interface = str(getattr(port_info, "interface", "") or "").lower()
+        hwid = str(getattr(port_info, "hwid", "") or "").lower()
+
+        combined = " ".join([desc, manufacturer, product, interface, hwid])
+        excluded_terms = (
+            "bluetooth",
+            "bth",
+            "mouse",
+            "keyboard",
+            "trackpad",
+            "pointer",
+            "hid",
+        )
+        return any(term in combined for term in excluded_terms)
+
+    def _is_candidate_tester_port(self, port_info, keywords):
+        desc = str(getattr(port_info, "description", "") or "").lower()
+        manufacturer = str(getattr(port_info, "manufacturer", "") or "").lower()
+        product = str(getattr(port_info, "product", "") or "").lower()
+        interface = str(getattr(port_info, "interface", "") or "").lower()
+        hwid = str(getattr(port_info, "hwid", "") or "").lower()
+        combined = " ".join([desc, manufacturer, product, interface, hwid])
+
+        if self._is_excluded_serial_port(port_info):
+            return False
+
+        # Prefer real USB/UART bridges and common microcontroller descriptors.
+        return any(k.lower() in combined for k in keywords)
+
+    def _probe_tester_serial(self, ser):
+        """Confirm the opened serial device behaves like the tester Pico."""
+        try:
+            ser.reset_input_buffer()
+        except Exception:
+            pass
+        try:
+            ser.write(b"get_calibration\n")
+            ser.flush()
+        except Exception:
+            return False
+
+        deadline = time.time() + 0.8
+        while time.time() < deadline:
+            try:
+                if not ser.in_waiting:
+                    time.sleep(0.05)
+                    continue
+                line = ser.readline().decode(errors="ignore").strip()
+                if not line:
+                    continue
+                if not line.startswith("{"):
+                    if ("received command" in line.lower()) or ("send commands" in line.lower()):
+                        return True
+                    continue
+                data = json.loads(line)
+                if isinstance(data, dict) and ("calibration" in data or "calibration_loaded" in data or "channels" in data):
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def auto_detect_serial(self, baud=115200, keywords=("Arduino", "Teensy", "CH340", "Silicon", "USB Serial", "CP210", "UART", "Pico", "RP2040", "USB")):
         """Auto-detect and connect to serial port"""
         ports = list(serial.tools.list_ports.comports())
-        for p in ports:
-            desc = p.description.lower()
-            if any(k.lower() in desc for k in keywords):
-                try:
-                    ser = serial.Serial(p.device, baud, timeout=0.1)
+        candidate_ports = [p for p in ports if self._is_candidate_tester_port(p, keywords)]
+        for p in candidate_ports:
+            try:
+                ser = serial.Serial(p.device, baud, timeout=0.1)
+                if self._probe_tester_serial(ser):
                     print("Connected to %s (%s)" % (p.device, p.description))
                     return ser
-                except Exception as e:
-                    print("Failed to open %s: %s" % (p.device, e))
+                print("Rejected %s (%s): did not respond like tester board" % (p.device, p.description))
+                try:
+                    ser.close()
+                except Exception:
+                    pass
+            except Exception as e:
+                print("Failed to open %s: %s" % (p.device, e))
         if not ports:
             print("No COM ports found.")
         else:
-            print("No matching device found. Available ports:")
+            print("No matching tester board found. Available ports:")
             for p in ports:
-                print(" - %s: %s" % (p.device, p.description))
+                excluded = " [ignored]" if self._is_excluded_serial_port(p) else ""
+                print(" - %s: %s%s" % (p.device, p.description, excluded))
         return None
     
     def send_command(self, command):
@@ -2516,7 +2688,9 @@ class MainWindow(QMainWindow):
                             else:
                                 voltage = ch_data.get("voltage", 0)
                                 status = ch_data.get("status", "UNKNOWN")
-                                resistance = self._resistance_from_voltage(voltage)
+                                if self._current_measurement_mode() == "continuity":
+                                    status = self._normalize_continuity_status(status, voltage)
+                                resistance = self._resistance_from_voltage(voltage) if self.resistance_enabled else None
                             self._store_latest_channel_reading(self.current_test, ch_num, signal, voltage, status, short_color)
                             self.ensure_channel_display(ch_num, signal)
                             if ch_num in self.channel_widgets:
@@ -2818,9 +2992,10 @@ class MainWindow(QMainWindow):
                 self.current_test = "camera_short" if self.flex_short_mode else "camera_flex"
         
         self.send_command("test:%s" % self.current_test)
+        self._sync_short_threshold()
         if self.current_test == "compute_distro":
             self.send_command("mode:%s" % ("short" if self.cdist_short_mode else "continuity"))
-        if self.board_type == "resistance":
+        if self.resistance_enabled:
             self._request_calibration_from_device()
         
         self.updating = True

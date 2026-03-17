@@ -20,6 +20,7 @@ import camera_aft_short
 # ---------------- Command handling ----------------
 current_test = "aoa"  # Default test
 cdist_mode = "continuity"  # "continuity" or "short" for Compute Distro
+short_threshold = 1.5
 test_should_switch = False
 # Buffer for incomplete lines (readline() can block on partial data)
 _command_buffer = b""
@@ -74,12 +75,21 @@ def measure_calibration_voltage():
 poll = uselect.poll()
 poll.register(sys.stdin, uselect.POLLIN)
 
+def apply_short_threshold():
+    aoa_short.set_threshold(short_threshold)
+    compute_distro_short.set_threshold(short_threshold)
+    hover_aft_short.set_threshold(short_threshold)
+    hover_fore_short.set_threshold(short_threshold)
+    camera_short.set_threshold(short_threshold)
+    camera_aft_short.set_threshold(short_threshold)
+
+
 def check_for_command():
     """Check for incoming serial commands (non-blocking).
     Never use readline() - it blocks if only partial data has arrived,
     which freezes the Pico when switching tests rapidly.
     """
-    global current_test, test_should_switch, cdist_mode, _command_buffer, current_calibration, current_calibration_loaded
+    global current_test, test_should_switch, cdist_mode, short_threshold, _command_buffer, current_calibration, current_calibration_loaded
 
     try:
         # Read only available bytes, one at a time, so we never block
@@ -109,6 +119,14 @@ def check_for_command():
                                 cdist_mode = new_mode
                                 print("Compute distro mode:", new_mode)
                                 return False
+                        elif command.startswith("short_threshold:"):
+                            try:
+                                short_threshold = float(command.split(":")[1].strip())
+                                apply_short_threshold()
+                                print("Short threshold:", short_threshold)
+                            except Exception as e:
+                                print("Short threshold error:", e)
+                            return False
                         elif command == "get_calibration":
                             print(json.dumps({"calibration": current_calibration, "calibration_loaded": current_calibration_loaded}))
                             return False
@@ -167,6 +185,7 @@ def main():
     camera_aft_flex.set_exit_checker(should_exit_check)
     camera_short.set_exit_checker(should_exit_check)
     camera_aft_short.set_exit_checker(should_exit_check)
+    apply_short_threshold()
 
     print("Pico Test Controller Started")
     print("Default test: AoA/Pitot Test")

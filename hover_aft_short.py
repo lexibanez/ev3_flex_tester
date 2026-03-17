@@ -53,6 +53,10 @@ CHANS = [
 THR = 1.5
 VDIV_SCALE = 101.0 / 100.0
 
+def set_threshold(volts):
+    global THR
+    THR = float(volts)
+
 # mux_net -> list of channel numbers (1-based) that use that mux net (e.g. 4 -> [4, 5])
 MUX_NET_TO_CH = {}
 for i, (_, m_net, _) in enumerate(CHANS, 1):

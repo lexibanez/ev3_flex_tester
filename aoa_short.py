@@ -37,6 +37,10 @@ def set_exit_checker(f):
 VDIV_SCALE = 101.0 / 100.0
 THR = 1.5
 
+def set_threshold(volts):
+    global THR
+    THR = float(volts)
+
 # Channel number -> (demux_y, mux_y, signal) for AoA channels 10-15
 CHANS = [
     (10, "AirData_SCL_EXT_P"),
