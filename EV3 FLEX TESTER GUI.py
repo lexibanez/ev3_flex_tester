@@ -871,9 +871,8 @@ class MainWindow(QMainWindow):
             """)
             btn.setCheckable(True)
         self.camera_fore_btn.setChecked(True)
-        self.camera_aft_enabled = False
-        self.camera_aft_under_dev_msg = "This test is still under development."
-        self.camera_aft_btn.setToolTip(self.camera_aft_under_dev_msg)
+        self.camera_aft_enabled = True
+        self.camera_aft_under_dev_msg = ""
         self.camera_fore_btn.clicked.connect(lambda: self._set_camera_fore_aft("fore"))
         self.camera_aft_btn.clicked.connect(lambda: self._set_camera_fore_aft("aft"))
         camera_fa_layout.addWidget(self.camera_fore_btn)
@@ -1359,15 +1358,15 @@ class MainWindow(QMainWindow):
             5: "BLOWER_PF_C", 6: "V_CAM_PF", 7: "BLOWER_SF_C", 8: "BLOWER_SF_B",
             9: "GMSL2_SF_N", 10: "BLOWER_SF_A", 11: "GMSL2_SF_P", 12: "V_CAM_SF"
         }
-        # Camera Aft Flex (P52B): PA top-left, SA top-right, GND bottom
+        # Camera Aft Flex (P52B): numbered to match Camera Flex tester DEMUX order
         self.camera_aft_flex_signal_names = {
-            1: "V_CAM_PA", 2: "BLOWER_PA_A", 3: "GMSL2_PA_P", 4: "BLOWER_PA_B", 5: "GMSL2_PA_N", 6: "BLOWER_PA_C",
-            7: "GND", 8: "GND", 9: "V_CAM_SA", 10: "BLOWER_SA_C", 11: "GND", 12: "BLOWER_SA_B",
-            13: "GMSL2_SA_P", 14: "BLOWER_SA_A", 15: "GMSL2_SA_N", 16: "GND", 17: "GND", 18: "GND", 19: "GND", 20: "GND"
+            1: "GND", 2: "GND", 3: "GND", 4: "GMSL2_SF_N", 5: "BLOWER_SF_A", 6: "GMSL2_SF_P",
+            7: "BLOWER_SF_B", 8: "GND", 9: "BLOWER_SF_C", 10: "V_CAM_SF", 11: "BLOWER_PF_C", 12: "GND",
+            13: "BLOWER_PF_B", 14: "GMSL2_PF_N", 15: "BLOWER_PF_A", 16: "GMSL2_PF_P", 17: "GND", 18: "GND", 19: "GND", 20: "V_CAM_PF"
         }
-        self.camera_aft_flex_pa_channels = (1, 2, 3, 4, 5, 6)
-        self.camera_aft_flex_sa_channels = (9, 10, 12, 13, 14, 15)
-        self.camera_aft_flex_gnd_channels = (7, 8, 11, 16, 17, 18, 19, 20)
+        self.camera_aft_flex_pa_channels = (4, 5, 6, 7, 9, 10)
+        self.camera_aft_flex_sa_channels = (11, 13, 14, 15, 16, 20)
+        self.camera_aft_flex_gnd_channels = (1, 2, 3, 8, 12, 17, 18, 19)
         self.camera_aft_mode = False  # False = Fore (P52A), True = Aft (P52B)
         
         # Initialize with AoA/Pitot channels (default test)
@@ -1523,7 +1522,7 @@ class MainWindow(QMainWindow):
     
     def eventFilter(self, obj, event):
         """Restart update timer when user releases mouse after dragging (smoother drag = less work during move)."""
-        if obj == self.camera_aft_btn and event.type() == QEvent.Enter:
+        if obj == self.camera_aft_btn and event.type() == QEvent.Enter and not self.camera_aft_enabled:
             QToolTip.showText(self.camera_aft_btn.mapToGlobal(self.camera_aft_btn.rect().bottomLeft()),
                               self.camera_aft_under_dev_msg,
                               self.camera_aft_btn)

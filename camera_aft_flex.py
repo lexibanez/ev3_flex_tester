@@ -39,29 +39,29 @@ def set_exit_checker(checker_func):
 
 VDIV_SCALE = 101.0 / 100.0
 
-# P52B (Aft) pinout: (demux_net, mux_net, signal_name)
-# PA block (pin 1-8) uses same nets as Fore PF; SA block (pin 9-20) uses same nets as Fore SF
+# P52B (Aft) channels in tester DEMUX order, matching Camera Flex numbering style.
+# PA block uses the same tester nets as Fore PF; SA block uses the same tester nets as Fore SF.
 CAMERA_AFT_CHANNELS = [
-    (10, 9, "V_CAM_PA"),       # pin 1
-    (5, 22, "BLOWER_PA_A"),   # pin 2
-    (6, 3, "GMSL2_PA_P"),     # pin 3
-    (7, 24, "BLOWER_PA_B"),   # pin 4
-    (4, 5, "GMSL2_PA_N"),     # pin 5
-    (9, 26, "BLOWER_PA_C"),   # pin 6
-    (8, 1, "GND"),            # pin 7
-    (1, 1, "GND"),            # pin 8
-    (20, 19, "V_CAM_SA"),     # pin 9
-    (11, 25, "BLOWER_SA_C"),  # pin 10
-    (12, 1, "GND"),           # pin 11
-    (13, 23, "BLOWER_SA_B"),  # pin 12
-    (16, 13, "GMSL2_SA_P"),   # pin 13
-    (15, 21, "BLOWER_SA_A"),  # pin 14
-    (14, 15, "GMSL2_SA_N"),   # pin 15
-    (17, 1, "GND"),           # pin 16
-    (18, 1, "GND"),           # pin 17
-    (19, 1, "GND"),           # pin 18
-    (2, 1, "GND"),            # pin 19
-    (3, 1, "GND"),            # pin 20
+    (20, 1, "GND"),
+    (19, 1, "GND"),
+    (18, 1, "GND"),
+    (17, 5, "GMSL2_SA_N"),
+    (16, 22, "BLOWER_SA_A"),
+    (15, 3, "GMSL2_SA_P"),
+    (14, 24, "BLOWER_SA_B"),
+    (13, 1, "GND"),
+    (12, 26, "BLOWER_SA_C"),
+    (11, 9, "V_CAM_SA"),
+    (10, 25, "BLOWER_SA_C"),
+    (9, 1, "GND"),
+    (8, 23, "BLOWER_SA_B"),
+    (7, 15, "GMSL2_SA_N"),
+    (6, 21, "BLOWER_SA_A"),
+    (5, 13, "GMSL2_SA_P"),
+    (4, 1, "GND"),
+    (3, 1, "GND"),
+    (2, 1, "GND"),
+    (1, 19, "V_CAM_SA"),
 ]
 
 def run():

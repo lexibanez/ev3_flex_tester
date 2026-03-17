@@ -65,10 +65,15 @@ def _interpolate_points(x_value, points):
 
     points = sorted(points, key=lambda item: float(item["raw_resistance"]))
     x_value = float(x_value)
+    low_raw = float(points[0]["raw_resistance"])
+    high_raw = float(points[-1]["raw_resistance"])
+    high_limit = high_raw * 1.10
 
-    if x_value <= float(points[0]["raw_resistance"]):
+    if x_value <= low_raw:
         return float(points[0]["known_resistance_ohms"])
-    if x_value >= float(points[-1]["raw_resistance"]):
+    if x_value > high_limit:
+        return None
+    if x_value >= high_raw:
         return float(points[-1]["known_resistance_ohms"])
 
     for idx in range(len(points) - 1):
