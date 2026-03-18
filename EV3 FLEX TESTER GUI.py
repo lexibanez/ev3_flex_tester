@@ -769,7 +769,7 @@ class MainWindow(QMainWindow):
         self.test_combo.currentTextChanged.connect(self.on_test_change)
         sidebar_layout.addWidget(self.test_combo)
         
-        # Flex test mode: Continuity / Short (for Hover Fore Flex and Hover Aft Flex)
+        # Legacy flex mode row kept hidden; mode selection now uses the unified 3-button selector.
         self.flex_mode_row = QWidget()
         self.flex_mode_row.setStyleSheet("background: transparent;")
         flex_mode_layout = QHBoxLayout(self.flex_mode_row)
@@ -805,8 +805,8 @@ class MainWindow(QMainWindow):
         flex_mode_layout.addWidget(self.flex_short_btn)
         self.flex_short_mode = False
 
-        self.board_type = "continuity"
-        self.measurement_mode = "continuity_short"
+        self.board_type = "resistance"
+        self.measurement_mode = "continuity"
         self.resistance_enabled = False
         self.calibration_loaded = False
         self.calibrate_btn = QPushButton("Calibrate")
@@ -825,7 +825,7 @@ class MainWindow(QMainWindow):
         """)
         self.calibrate_btn.clicked.connect(self.calibrate_resistance_from_y15)
         self.calibrate_btn.setVisible(False)
-        self.change_board_type_btn = QPushButton("Change Board Type")
+        self.change_board_type_btn = QPushButton("Resistance Spec")
         self.change_board_type_btn.setFont(get_font(9))
         self.change_board_type_btn.setMinimumHeight(40)
         self.change_board_type_btn.setStyleSheet("""
@@ -843,6 +843,57 @@ class MainWindow(QMainWindow):
             }
         """)
         self.change_board_type_btn.clicked.connect(self.prompt_change_board_type)
+
+        self.board_settings_toggle_btn = QPushButton("⚙")
+        self.board_settings_toggle_btn.setFont(get_font(12, bold=True))
+        self.board_settings_toggle_btn.setFixedSize(34, 34)
+        self.board_settings_toggle_btn.setToolTip("Board settings")
+        self.board_settings_toggle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1f1b1c;
+                color: #d8d8d8;
+                border: 1px solid #444;
+                border-radius: 17px;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                border: 1px solid #666;
+                color: #ffffff;
+            }
+        """)
+        self.board_settings_toggle_btn.clicked.connect(self._toggle_board_settings)
+
+        self.board_settings_row = QWidget()
+        self.board_settings_row.setStyleSheet("background: transparent;")
+        board_settings_row_layout = QHBoxLayout(self.board_settings_row)
+        board_settings_row_layout.setContentsMargins(0, 6, 0, 0)
+        board_settings_row_layout.setSpacing(0)
+        board_settings_row_layout.addStretch()
+        board_settings_row_layout.addWidget(self.board_settings_toggle_btn)
+
+        self.board_settings_panel = QFrame()
+        self.board_settings_panel.setStyleSheet("""
+            QFrame {
+                background-color: #1f1b1c;
+                border: 1px solid #444;
+                border-radius: 8px;
+            }
+            QLabel {
+                background: transparent;
+                color: #d8d8d8;
+                border: none;
+            }
+        """)
+        board_settings_layout = QVBoxLayout(self.board_settings_panel)
+        board_settings_layout.setContentsMargins(10, 10, 10, 10)
+        board_settings_layout.setSpacing(8)
+        self.board_settings_warning = QLabel("Do not change this unless you are using a V1 board.")
+        self.board_settings_warning.setWordWrap(True)
+        self.board_settings_warning.setFont(get_font(9, bold=True))
+        self.board_settings_warning.setStyleSheet("color: #FED541;")
+        board_settings_layout.addWidget(self.board_settings_warning)
+        board_settings_layout.addWidget(self.change_board_type_btn)
+        self.board_settings_panel.setVisible(False)
 
         # Camera Flex: Fore / Aft (only visible when Camera Flex Test selected)
         self.camera_fore_aft_row = QWidget()
@@ -883,7 +934,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.flex_mode_row)
         self.flex_mode_row.setVisible(False)
 
-        # Compute Distro mode: Continuity / Short (neutral style, only visible for Compute Distro)
+        # Legacy compute distro mode row kept hidden; mode selection now uses the unified 3-button selector.
         self.cdist_mode_row = QWidget()
         self.cdist_mode_row.setStyleSheet("background: transparent;")
         cdist_mode_layout = QHBoxLayout(self.cdist_mode_row)
@@ -920,15 +971,16 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.cdist_mode_row)
         self.cdist_mode_row.setVisible(False)
         self.cdist_short_mode = False
-        sidebar_layout.addWidget(self.change_board_type_btn)
+        sidebar_layout.addWidget(self.board_settings_row)
         self.measurement_mode_row = QWidget()
         self.measurement_mode_row.setStyleSheet("background: transparent;")
         measurement_mode_layout = QHBoxLayout(self.measurement_mode_row)
         measurement_mode_layout.setContentsMargins(0, 6, 0, 0)
         measurement_mode_layout.setSpacing(8)
-        self.measurement_continuity_btn = QPushButton("Continuity/Short")
+        self.measurement_continuity_btn = QPushButton("Continuity")
+        self.measurement_short_btn = QPushButton("Short")
         self.measurement_resistance_btn = QPushButton("Resistance")
-        for btn in (self.measurement_continuity_btn, self.measurement_resistance_btn):
+        for btn in (self.measurement_continuity_btn, self.measurement_short_btn, self.measurement_resistance_btn):
             btn.setFont(get_font(10))
             btn.setStyleSheet("""
                 QPushButton {
@@ -955,11 +1007,14 @@ class MainWindow(QMainWindow):
             """)
             btn.setCheckable(True)
         self.measurement_continuity_btn.setChecked(True)
-        self.measurement_continuity_btn.clicked.connect(lambda: self._set_measurement_mode("continuity_short"))
+        self.measurement_continuity_btn.clicked.connect(lambda: self._set_measurement_mode("continuity"))
+        self.measurement_short_btn.clicked.connect(lambda: self._set_measurement_mode("short"))
         self.measurement_resistance_btn.clicked.connect(lambda: self._set_measurement_mode("resistance"))
         measurement_mode_layout.addWidget(self.measurement_continuity_btn)
+        measurement_mode_layout.addWidget(self.measurement_short_btn)
         measurement_mode_layout.addWidget(self.measurement_resistance_btn)
         sidebar_layout.addWidget(self.measurement_mode_row)
+        sidebar_layout.addWidget(self.board_settings_panel)
         sidebar_layout.addWidget(self.calibrate_btn)
         
         # Spacer
@@ -1438,7 +1493,6 @@ class MainWindow(QMainWindow):
         
         # Constrain channel rows to viewport width so no horizontal scroll (run after first layout)
         QTimer.singleShot(0, self._constrain_channels_width)
-        QTimer.singleShot(0, self.prompt_startup_board_type)
     
     def resizeEvent(self, event):
         """Constrain channel content to scroll viewport width so rows fit without horizontal scroll."""
@@ -1861,6 +1915,9 @@ class MainWindow(QMainWindow):
             self.ser.reset_input_buffer()
         except Exception:
             pass
+
+    def _toggle_board_settings(self):
+        self.board_settings_panel.setVisible(not self.board_settings_panel.isVisible())
         for _ in range(2):
             self.send_command("get_calibration")
             deadline = time.time() + 1.5
@@ -1935,18 +1992,18 @@ class MainWindow(QMainWindow):
                 self.resistance_header_bubble2.setVisible(self.resistance_enabled)
             except Exception:
                 pass
-        self.measurement_continuity_btn.setChecked(self.measurement_mode != "resistance")
+        self.measurement_continuity_btn.setChecked(self.measurement_mode == "continuity")
+        self.measurement_short_btn.setChecked(self.measurement_mode == "short")
         self.measurement_resistance_btn.setChecked(self.measurement_mode == "resistance")
         resistance_available = (self.board_type == "resistance")
         self.measurement_resistance_btn.setEnabled(resistance_available)
         self.measurement_resistance_btn.setToolTip("" if resistance_available else "Resistance measurements require a resistance spec board.")
-        show_mode_buttons = not self.resistance_enabled
-        self.flex_mode_row.setVisible(show_mode_buttons and self.test_combo.currentText() in ("AoA/Pitot Test", "Hover Fore Flex Test", "Hover Aft Flex Test", "Camera Flex Test"))
-        self.cdist_mode_row.setVisible(show_mode_buttons and self.test_combo.currentText() == "Compute Distro Test")
+        self.flex_mode_row.setVisible(False)
+        self.cdist_mode_row.setVisible(False)
         for w in self.channel_widgets.values():
             w.set_resistance_visible(self.resistance_enabled)
         self.calibrate_btn.setVisible(self.board_type == "resistance")
-        self.change_board_type_btn.setText("Board: %s" % ("Resistance" if self.board_type == "resistance" else "Continuity / Short"))
+        self.change_board_type_btn.setText("Board Type: %s" % ("Resistance Spec" if self.board_type == "resistance" else "V1 Continuity / Short"))
         self.headers_widget.updateGeometry()
         self.header_container.updateGeometry()
         self.channels_widget.updateGeometry()
@@ -1977,7 +2034,10 @@ class MainWindow(QMainWindow):
 
     def _set_board_type(self, board_type):
         self.board_type = board_type
-        self.measurement_mode = "continuity_short"
+        if self.measurement_mode == "resistance" and board_type != "resistance":
+            self.measurement_mode = "continuity"
+        elif self.measurement_mode not in ("continuity", "short", "resistance"):
+            self.measurement_mode = "continuity"
         self._apply_board_type_ui()
         self._update_board_type_status_label()
         self._sync_short_threshold()
@@ -1986,12 +2046,11 @@ class MainWindow(QMainWindow):
 
     def _set_measurement_mode(self, mode):
         if mode == "resistance" and self.board_type != "resistance":
-            self.measurement_mode = "continuity_short"
+            self.measurement_mode = "continuity"
         else:
             self.measurement_mode = mode
-        if self.measurement_mode == "resistance":
-            self.flex_short_mode = False
-            self.cdist_short_mode = False
+        self.flex_short_mode = (self.measurement_mode == "short")
+        self.cdist_short_mode = (self.measurement_mode == "short")
         self._apply_board_type_ui()
         self._update_board_type_status_label()
         self._sync_short_threshold()
@@ -2003,27 +2062,15 @@ class MainWindow(QMainWindow):
         choice = show_styled_choice(
             self,
             "Board Type",
-            "Choose which board is connected. Resistance boards can run either resistance measurements or continuity/short from the sidebar. Continuity / short boards stay locked out of resistance mode.",
+            "Do not change this unless you are using a V1 board. Resistance spec boards can run either resistance measurements or continuity/short from the sidebar. V1 continuity / short boards stay locked out of resistance mode.",
             [
-                ("continuity", "Continuity / Short Board", False),
-                ("resistance", "Resistance Board", False),
+                ("resistance", "Resistance Spec", False),
+                ("continuity", "V1 Continuity / Short", False),
                 ("cancel", "Cancel", False),
             ],
         )
         if choice in ("continuity", "resistance"):
             self._set_board_type(choice)
-
-    def prompt_startup_board_type(self):
-        choice = show_styled_choice(
-            self,
-            "Board Type",
-            "Which board is connected? Resistance boards can still use continuity/short in the sidebar, while continuity / short boards cannot use resistance mode.",
-            [
-                ("continuity", "Continuity / Short Board", False),
-                ("resistance", "Resistance Board", False),
-            ],
-        )
-        self._set_board_type(choice or "continuity")
 
     def _resistance_reference_range(self):
         points = self.calibration.get("calibration_points", [])
@@ -2866,7 +2913,7 @@ class MainWindow(QMainWindow):
         # Insert note under CHASSIS channel for Hover Aft Flex only
         # Compute Distro: show Continuity/Short row and apply voltage visibility for short mode
         if selected_text == "Compute Distro Test":
-            self.cdist_mode_row.setVisible(True)
+            self.cdist_mode_row.setVisible(False)
             self.flex_mode_row.setVisible(False)
             self.camera_fore_aft_row.setVisible(False)
             show_voltage = self._should_show_voltage_for_current_test()
@@ -2877,9 +2924,7 @@ class MainWindow(QMainWindow):
                 w.set_voltage_visible(show_voltage)
         elif selected_text in ("AoA/Pitot Test", "Hover Fore Flex Test", "Hover Aft Flex Test", "Camera Flex Test"):
             self.cdist_mode_row.setVisible(False)
-            self.flex_mode_row.setVisible(True)
-            self.flex_continuity_btn.setChecked(not self.flex_short_mode)
-            self.flex_short_btn.setChecked(self.flex_short_mode)
+            self.flex_mode_row.setVisible(False)
             show_voltage = self._should_show_voltage_for_current_test()
             self.voltage_header_bubble.setVisible(show_voltage)
             if hasattr(self, "header_bubbles_column2") and self.header_bubbles_column2:
@@ -2947,35 +2992,7 @@ class MainWindow(QMainWindow):
     
     def _set_flex_mode(self, mode):
         """Switch between Continuity and Short for AoA, Camera, Hover Fore, or Hover Aft."""
-        self.flex_short_mode = (mode == "short")
-        self.flex_continuity_btn.setChecked(mode == "continuity")
-        self.flex_short_btn.setChecked(mode == "short")
-        selected = self.test_combo.currentText()
-        if selected == "AoA/Pitot Test":
-            self.current_test = "aoa_short" if self.flex_short_mode else "aoa"
-        elif selected == "Hover Fore Flex Test":
-            self.current_test = "hover_fore_short" if self.flex_short_mode else "hover_fore_flex"
-        elif selected == "Hover Aft Flex Test":
-            self.current_test = "hover_aft_short" if self.flex_short_mode else "hover_aft_flex"
-        elif selected == "Camera Flex Test":
-            if self.camera_aft_mode:
-                self.current_test = "camera_aft_short" if self.flex_short_mode else "camera_aft_flex"
-            else:
-                self.current_test = "camera_short" if self.flex_short_mode else "camera_flex"
-            # Rebuild layout so GND section hides for camera_short and channel count (12 vs 20) updates immediately
-            self.on_test_change("Camera Flex Test")
-            return  # on_test_change already updated visibility and sends command if running
-        else:
-            return
-        show_voltage = self._should_show_voltage_for_current_test()
-        self.voltage_header_bubble.setVisible(show_voltage)
-        if hasattr(self, "header_bubbles_column2") and self.header_bubbles_column2:
-            self.header_bubbles_column2[1].setVisible(show_voltage)
-        for w in self.channel_widgets.values():
-            w.set_voltage_visible(show_voltage)
-        if self.ser and self.ser.is_open and self.updating:
-            self.send_command("test:%s" % self.current_test)
-            time.sleep(0.2)
+        self._set_measurement_mode(mode)
 
     def _set_camera_fore_aft(self, mode):
         """Switch between Fore (P52A) and Aft (P52B) for Camera Flex Test."""
