@@ -51,6 +51,33 @@ def set_threshold(volts):
     global THR
     THR = float(volts)
 
+
+def alias_channel(ch):
+    return ch + 15 if ch <= 15 else ch - 15
+
+
+MUX_TO_CH = {i: i for i in range(1, 31)}
+
+
+GND_CHANNELS = {1, 7, 13, 15, 17, 23, 29}
+VBUS_CHANNELS = {18, 20, 22, 24}
+
+
+def should_ignore_pair(ch_a, ch_b):
+    if ch_b == alias_channel(ch_a):
+        return True
+    if ch_a in GND_CHANNELS and ch_b in GND_CHANNELS:
+        return True
+    if ch_a in VBUS_CHANNELS and ch_b in VBUS_CHANNELS:
+        return True
+    return False
+
+
+IGNORE_MUX_BY_CH = {}
+for ch in range(1, 31):
+    alias_ch = alias_channel(ch)
+    IGNORE_MUX_BY_CH[ch] = {alias_ch}
+
 def do_one_scan():
     shorts = {c: set() for c in range(1, 31)}
     for d in range(1, 16):
@@ -66,11 +93,15 @@ def do_one_scan():
             v1 = (adc1.read_u16() / 65535) * 3.3 * VDIV_SCALE
             if m != d:
                 if v0 >= THR:
-                    shorts[d].add(m)
-                    shorts[m].add(d)
+                    if (m not in IGNORE_MUX_BY_CH.get(d, set())) and (not should_ignore_pair(d, m)):
+                        shorts[d].add(m)
+                        shorts[m].add(d)
                 if v1 >= THR:
-                    shorts[d + 15].add(m + 15)
-                    shorts[m + 15].add(d + 15)
+                    ch_lo = d + 15
+                    ch_hi = m + 15
+                    if (ch_hi not in IGNORE_MUX_BY_CH.get(ch_lo, set())) and (not should_ignore_pair(ch_lo, ch_hi)):
+                        shorts[ch_lo].add(ch_hi)
+                        shorts[ch_hi].add(ch_lo)
     out = []
     for c in range(1, 31):
         out.append({

@@ -117,8 +117,10 @@ def check_for_command():
                             new_mode = command.split(":")[1].strip()
                             if new_mode in ["continuity", "short"]:
                                 cdist_mode = new_mode
+                                if current_test == "compute_distro":
+                                    test_should_switch = True
                                 print("Compute distro mode:", new_mode)
-                                return False
+                                return bool(current_test == "compute_distro")
                         elif command.startswith("short_threshold:"):
                             try:
                                 short_threshold = float(command.split(":")[1].strip())
