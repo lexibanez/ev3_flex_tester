@@ -732,7 +732,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(test_label)
         
         self.test_combo = QComboBox()
-        self.test_combo.addItems(["AoA/Pitot Flex", "Compute Distro Flex", "Hover Aft Flex", "Hover Fwd Flex", "Camera Flex"])
+        self.test_combo.addItems(["AoA/Pitot Flex", "Compute Distro Flex", "Hover Flex", "Camera Flex"])
         self.test_combo.setFont(get_font(10))
         self.test_combo.setStyleSheet("""
             QComboBox {
@@ -895,14 +895,50 @@ class MainWindow(QMainWindow):
         board_settings_layout.addWidget(self.change_board_type_btn)
         self.board_settings_panel.setVisible(False)
 
+        # Hover Flex: Fwd / Aft (only visible when Hover Flex selected)
+        self.hover_fore_aft_row = QWidget()
+        self.hover_fore_aft_row.setStyleSheet("background: transparent;")
+        hover_fa_layout = QHBoxLayout(self.hover_fore_aft_row)
+        hover_fa_layout.setContentsMargins(0, 6, 0, 0)
+        hover_fa_layout.setSpacing(8)
+        self.hover_fore_btn = QPushButton("FWD")
+        self.hover_aft_btn = QPushButton("AFT")
+        for btn in (self.hover_fore_btn, self.hover_aft_btn):
+            btn.setFont(get_font(10))
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2a2a2a;
+                    color: #ffffff;
+                    border: 1px solid #555;
+                    border-radius: 6px;
+                    padding: 6px 10px;
+                }
+                QPushButton:hover { border: 1px solid #666; }
+                QPushButton:checked {
+                    background-color: #FED541;
+                    color: #1a1a1a;
+                    border: 2px solid #FFE27A;
+                    font-weight: 700;
+                }
+            """)
+            btn.setCheckable(True)
+        self.hover_fore_btn.setChecked(True)
+        self.hover_aft_mode = False
+        self.hover_fore_btn.clicked.connect(lambda: self._set_hover_fore_aft("fore"))
+        self.hover_aft_btn.clicked.connect(lambda: self._set_hover_fore_aft("aft"))
+        hover_fa_layout.addWidget(self.hover_fore_btn)
+        hover_fa_layout.addWidget(self.hover_aft_btn)
+        sidebar_layout.addWidget(self.hover_fore_aft_row)
+        self.hover_fore_aft_row.setVisible(False)
+
         # Camera Flex: Fore / Aft (only visible when Camera Flex selected)
         self.camera_fore_aft_row = QWidget()
         self.camera_fore_aft_row.setStyleSheet("background: transparent;")
         camera_fa_layout = QHBoxLayout(self.camera_fore_aft_row)
         camera_fa_layout.setContentsMargins(0, 6, 0, 0)
         camera_fa_layout.setSpacing(8)
-        self.camera_fore_btn = QPushButton("Fore")
-        self.camera_aft_btn = QPushButton("Aft")
+        self.camera_fore_btn = QPushButton("FWD")
+        self.camera_aft_btn = QPushButton("AFT")
         for btn in (self.camera_fore_btn, self.camera_aft_btn):
             btn.setFont(get_font(10))
             btn.setStyleSheet("""
@@ -2888,14 +2924,15 @@ class MainWindow(QMainWindow):
             self.current_test = "compute_distro"
             channels_to_show = list(range(1, 31))  # C1-C30
             signal_names = self.compute_distro_signal_names
-        elif selected_text == "Hover Aft Flex":
-            self.current_test = "hover_aft_short" if self.flex_short_mode else "hover_aft_flex"
-            channels_to_show = list(range(1, 11))  # 10 channels
-            signal_names = self.hover_aft_flex_signal_names
-        elif selected_text == "Hover Fwd Flex":
-            self.current_test = "hover_fore_short" if self.flex_short_mode else "hover_fore_flex"
-            channels_to_show = list(range(1, 6))  # 5 channels
-            signal_names = self.hover_fore_flex_signal_names
+        elif selected_text == "Hover Flex":
+            if self.hover_aft_mode:
+                self.current_test = "hover_aft_short" if self.flex_short_mode else "hover_aft_flex"
+                channels_to_show = list(range(1, 11))  # 10 channels
+                signal_names = self.hover_aft_flex_signal_names
+            else:
+                self.current_test = "hover_fore_short" if self.flex_short_mode else "hover_fore_flex"
+                channels_to_show = list(range(1, 6))  # 5 channels
+                signal_names = self.hover_fore_flex_signal_names
         elif selected_text == "Camera Flex":
             if self.camera_aft_mode:
                 self.current_test = "camera_aft_short" if self.flex_short_mode else "camera_aft_flex"
@@ -2943,18 +2980,26 @@ class MainWindow(QMainWindow):
             self.cdist_mode_row.setVisible(False)
             self.flex_mode_row.setVisible(False)
             self.camera_fore_aft_row.setVisible(False)
-        elif selected_text in ("AoA/Pitot Flex", "Hover Fwd Flex", "Hover Aft Flex", "Camera Flex"):
+        elif selected_text in ("AoA/Pitot Flex", "Hover Flex", "Camera Flex"):
             self.cdist_mode_row.setVisible(False)
             self.flex_mode_row.setVisible(False)
-            if selected_text == "Camera Flex":
+            if selected_text == "Hover Flex":
+                self.hover_fore_aft_row.setVisible(True)
+                self.hover_fore_btn.setChecked(not self.hover_aft_mode)
+                self.hover_aft_btn.setChecked(self.hover_aft_mode)
+                self.camera_fore_aft_row.setVisible(False)
+            elif selected_text == "Camera Flex":
+                self.hover_fore_aft_row.setVisible(False)
                 self.camera_fore_aft_row.setVisible(True)
                 self.camera_fore_btn.setChecked(not self.camera_aft_mode)
                 self.camera_aft_btn.setChecked(self.camera_aft_mode)
             else:
+                self.hover_fore_aft_row.setVisible(False)
                 self.camera_fore_aft_row.setVisible(False)
         else:
             self.cdist_mode_row.setVisible(False)
             self.flex_mode_row.setVisible(False)
+            self.hover_fore_aft_row.setVisible(False)
             self.camera_fore_aft_row.setVisible(False)
 
         self._apply_board_type_ui()
@@ -3010,6 +3055,15 @@ class MainWindow(QMainWindow):
         """Switch between Continuity and Short for AoA, Camera, Hover Fore, or Hover Aft."""
         self._set_measurement_mode(mode)
 
+    def _set_hover_fore_aft(self, mode):
+        """Switch between Fwd and Aft for Hover Flex."""
+        self.hover_aft_mode = (mode == "aft")
+        self.hover_fore_btn.setChecked(mode == "fore")
+        self.hover_aft_btn.setChecked(mode == "aft")
+        if self.test_combo.currentText() != "Hover Flex":
+            return
+        self.on_test_change("Hover Flex")
+
     def _set_camera_fore_aft(self, mode):
         """Switch between Fore (P52A) and Aft (P52B) for Camera Flex."""
         if mode == "aft" and not self.camera_aft_enabled:
@@ -3042,10 +3096,11 @@ class MainWindow(QMainWindow):
             self.current_test = "aoa_short" if self.flex_short_mode else "aoa"
         elif selected == "Compute Distro Flex":
             self.current_test = "compute_distro"
-        elif selected == "Hover Aft Flex":
-            self.current_test = "hover_aft_short" if self.flex_short_mode else "hover_aft_flex"
-        elif selected == "Hover Fwd Flex":
-            self.current_test = "hover_fore_short" if self.flex_short_mode else "hover_fore_flex"
+        elif selected == "Hover Flex":
+            if self.hover_aft_mode:
+                self.current_test = "hover_aft_short" if self.flex_short_mode else "hover_aft_flex"
+            else:
+                self.current_test = "hover_fore_short" if self.flex_short_mode else "hover_fore_flex"
         elif selected == "Camera Flex":
             if self.camera_aft_mode:
                 self.current_test = "camera_aft_short" if self.flex_short_mode else "camera_aft_flex"
