@@ -971,17 +971,17 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.cdist_mode_row)
         self.cdist_mode_row.setVisible(False)
         self.cdist_short_mode = False
-        sidebar_layout.addWidget(self.board_settings_row)
         self.measurement_mode_row = QWidget()
         self.measurement_mode_row.setStyleSheet("background: transparent;")
-        measurement_mode_layout = QHBoxLayout(self.measurement_mode_row)
+        measurement_mode_layout = QVBoxLayout(self.measurement_mode_row)
         measurement_mode_layout.setContentsMargins(0, 6, 0, 0)
-        measurement_mode_layout.setSpacing(8)
+        measurement_mode_layout.setSpacing(6)
         self.measurement_continuity_btn = QPushButton("Continuity")
         self.measurement_short_btn = QPushButton("Short")
         self.measurement_resistance_btn = QPushButton("Resistance")
         for btn in (self.measurement_continuity_btn, self.measurement_short_btn, self.measurement_resistance_btn):
             btn.setFont(get_font(10))
+            btn.setMinimumHeight(34)
             btn.setStyleSheet("""
                 QPushButton {
                     background-color: #2a2a2a;
@@ -994,9 +994,9 @@ class MainWindow(QMainWindow):
                     border: 1px solid #666;
                 }
                 QPushButton:checked {
-                    background-color: #FED541;
+                    background-color: rgba(254, 213, 65, 0.78);
                     color: #1a1a1a;
-                    border: 2px solid #FFE27A;
+                    border: 2px solid rgba(255, 226, 122, 0.78);
                     font-weight: 700;
                 }
                 QPushButton:disabled {
@@ -1014,8 +1014,9 @@ class MainWindow(QMainWindow):
         measurement_mode_layout.addWidget(self.measurement_short_btn)
         measurement_mode_layout.addWidget(self.measurement_resistance_btn)
         sidebar_layout.addWidget(self.measurement_mode_row)
-        sidebar_layout.addWidget(self.board_settings_panel)
         sidebar_layout.addWidget(self.calibrate_btn)
+        sidebar_layout.addWidget(self.board_settings_row)
+        sidebar_layout.addWidget(self.board_settings_panel)
         
         # Spacer
         sidebar_layout.addStretch()
@@ -1915,9 +1916,6 @@ class MainWindow(QMainWindow):
             self.ser.reset_input_buffer()
         except Exception:
             pass
-
-    def _toggle_board_settings(self):
-        self.board_settings_panel.setVisible(not self.board_settings_panel.isVisible())
         for _ in range(2):
             self.send_command("get_calibration")
             deadline = time.time() + 1.5
@@ -1944,6 +1942,9 @@ class MainWindow(QMainWindow):
                 except Exception:
                     pass
         return False
+
+    def _toggle_board_settings(self):
+        self.board_settings_panel.setVisible(not self.board_settings_panel.isVisible())
 
     def _capture_calibration_voltage(self):
         if not (self.ser and self.ser.is_open):
