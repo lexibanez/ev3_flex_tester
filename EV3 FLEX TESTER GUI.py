@@ -732,7 +732,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(test_label)
         
         self.test_combo = QComboBox()
-        self.test_combo.addItems(["AoA/Pitot Test", "Compute Distro Test", "Hover Aft Flex Test", "Hover Fore Flex Test", "Camera Flex Test"])
+        self.test_combo.addItems(["AoA/Pitot Flex", "Compute Distro Flex", "Hover Aft Flex", "Hover Fwd Flex", "Camera Flex"])
         self.test_combo.setFont(get_font(10))
         self.test_combo.setStyleSheet("""
             QComboBox {
@@ -895,7 +895,7 @@ class MainWindow(QMainWindow):
         board_settings_layout.addWidget(self.change_board_type_btn)
         self.board_settings_panel.setVisible(False)
 
-        # Camera Flex: Fore / Aft (only visible when Camera Flex Test selected)
+        # Camera Flex: Fore / Aft (only visible when Camera Flex selected)
         self.camera_fore_aft_row = QWidget()
         self.camera_fore_aft_row.setStyleSheet("background: transparent;")
         camera_fa_layout = QHBoxLayout(self.camera_fore_aft_row)
@@ -1025,11 +1025,7 @@ class MainWindow(QMainWindow):
             self.cdist_short_mode = (mode == "short")
             self.continuity_btn.setChecked(mode == "continuity")
             self.short_btn.setChecked(mode == "short")
-            self.voltage_header_bubble.setVisible(not self.cdist_short_mode)
-            if hasattr(self, "header_bubbles_column2") and self.header_bubbles_column2:
-                self.header_bubbles_column2[1].setVisible(not self.cdist_short_mode)
-            for w in self.channel_widgets.values():
-                w.set_voltage_visible(not self.cdist_short_mode)
+            self._update_header_visibility()
             if self.ser and self.ser.is_open:
                 self.send_command("mode:%s" % mode)
         
@@ -1346,7 +1342,7 @@ class MainWindow(QMainWindow):
         self.valid_channels = [10, 11, 12, 13, 14, 15]
         self._dragging = False  # True while user is dragging window (pauses update_timer for smoother drag)
         
-        # Signal name mappings for AoA/Pitot Test (P75/P94 connector pin numbers from schematic)
+        # Signal name mappings for AoA/Pitot Flex (P75/P94 connector pin numbers from schematic)
         self.aoa_signal_names = {
             10: "AirData_SCL_EXT_P",
             11: "AirData_SCL_EXT_N",
@@ -1357,7 +1353,7 @@ class MainWindow(QMainWindow):
         }
         self.aoa_channel_pins = {10: 7, 11: 9, 12: 3, 13: 5, 14: 6, 15: 1}  # channel -> P75/P94 pin
         
-        # Signal name mappings for Compute Distro Test (C1-C30)
+        # Signal name mappings for Compute Distro Flex (C1-C30)
         # Pin mapping is REVERSED: Pin 1 → C30 (Y15, ADC1), Pin 30 → C1 (Y1, ADC0)
         self.compute_distro_signal_names = {
             1: "GND7",           # Pin 30 → C1 (Y1, ADC0)
@@ -1391,7 +1387,7 @@ class MainWindow(QMainWindow):
             29: "GND1",          # Pin 2 → C29 (Y14, ADC1)
             30: "IMU_CLK_N"      # Pin 1 → C30 (Y15, ADC1)
         }
-        # Hover Aft Flex Test: 10 channels (DEMUX→MUX pairs, DEMUX 1 for both GND and GND_SERVO)
+        # Hover Aft Flex: 10 channels (DEMUX→MUX pairs, DEMUX 1 for both GND and GND_SERVO)
         self.hover_aft_flex_signal_names = {
             1: "T1_IN_P",
             2: "28V_SERVO",
@@ -1404,7 +1400,7 @@ class MainWindow(QMainWindow):
             9: "T1_OUT_N",
             10: "CHASSIS"
         }
-        # Hover Fore Flex Test: 7 channels (GND channels send N/A - show "not testable yet")
+        # Hover Fwd Flex: 7 channels (GND channels send N/A - show "not testable yet")
         self.hover_fore_flex_signal_names = {
             1: "T1_IN_P",
             2: "T1_IN_N",
@@ -1413,7 +1409,7 @@ class MainWindow(QMainWindow):
             5: "CHASSIS"
         }
         self.hover_fore_flex_channel_order = (1, 2, 3, 4, 5)
-        # Camera Flex Test: 20 channels (blower pins have no MUX - show "not testable yet")
+        # Camera Flex: 20 channels (blower pins have no MUX - show "not testable yet")
         self.camera_flex_signal_names = {
             1: "GND8",
             2: "GND4",
@@ -1633,6 +1629,14 @@ class MainWindow(QMainWindow):
         self.headers_layout.addWidget(v_bubble2, stretch=1)
         self.headers_layout.addWidget(res_bubble2, stretch=1)
         self.headers_layout.addWidget(s_bubble2, stretch=1)
+        ch_bubble2.show()
+        s_bubble2.show()
+        v_bubble2.setVisible(True)
+        res_bubble2.setVisible(self.resistance_enabled)
+        self.channel_header.show()
+        self.status_header.show()
+        self.voltage_header_bubble.setVisible(True)
+        self.resistance_header_bubble.setVisible(self.resistance_enabled)
         
         # Clear existing layout
         while self.channels_layout.count():
@@ -1788,6 +1792,10 @@ class MainWindow(QMainWindow):
         """Set up single-column layout for other tests"""
         self.pf_sf_row.setVisible(False)
         self.header_container.show()
+        self.channel_header.show()
+        self.status_header.show()
+        self.voltage_header_bubble.setVisible(True)
+        self.resistance_header_bubble.setVisible(self.resistance_enabled)
         # Remove second set of column title bubbles from headers row (keep parented so they don't become separate windows)
         for bubble in self.header_bubbles_column2:
             self.headers_layout.removeWidget(bubble)
@@ -1807,6 +1815,23 @@ class MainWindow(QMainWindow):
         self.camera_gnd_section = None
         self.camera_flex_main_container = None
         self.channels_layout.addStretch()
+
+    def _update_header_visibility(self):
+        show_voltage = self._should_show_voltage_for_current_test()
+        self.voltage_header_bubble.setVisible(show_voltage)
+        self.resistance_header_bubble.setVisible(self.resistance_enabled)
+
+        show_secondary_headers = (self.current_test == "compute_distro" and self.header_container.isVisible())
+        for idx, bubble in enumerate(self.header_bubbles_column2):
+            if idx == 1:
+                bubble.setVisible(show_secondary_headers and show_voltage)
+            elif idx == 2:
+                bubble.setVisible(show_secondary_headers and self.resistance_enabled)
+            else:
+                bubble.setVisible(show_secondary_headers)
+
+        for w in self.channel_widgets.values():
+            w.set_voltage_visible(show_voltage)
     
     def _short_groups_from_channels(self, channels):
         """From short-format channels (channel + shorted_with list), return list of connected components (short groups)."""
@@ -2009,6 +2034,7 @@ class MainWindow(QMainWindow):
         self.header_container.updateGeometry()
         self.channels_widget.updateGeometry()
         self._refresh_visible_channel_resistances()
+        self._update_header_visibility()
 
     def _update_board_type_status_label(self):
         if self.board_type == "resistance":
@@ -2213,7 +2239,7 @@ class MainWindow(QMainWindow):
         if self.current_test in ("hover_aft_flex", "hover_aft_short"):
             return "Hover Aft Flex"
         if self.current_test in ("hover_fore_flex", "hover_fore_short"):
-            return "Hover Fore Flex"
+            return "Hover Fwd Flex"
         if self.current_test in ("camera_aft_flex", "camera_aft_short"):
             return "Camera Flex Aft"
         if self.current_test in ("camera_flex", "camera_short"):
@@ -2489,7 +2515,7 @@ class MainWindow(QMainWindow):
                                 break
                         self.column2_layout.insertWidget(insert_pos, channel_widget)
             else:
-                # Single-column layout (Hover Fore Flex: GNDs at bottom)
+                # Single-column layout (Hover Fwd Flex: GNDs at bottom)
                 if self.current_test == "hover_fore_flex":
                     order = self.hover_fore_flex_channel_order
                     idx = order.index(ch_num)
@@ -2854,23 +2880,23 @@ class MainWindow(QMainWindow):
     def on_test_change(self, selected_text):
         """Handle test selection dropdown change"""
         # Determine which channels to show
-        if selected_text == "AoA/Pitot Test":
+        if selected_text == "AoA/Pitot Flex":
             self.current_test = "aoa_short" if self.flex_short_mode else "aoa"
             channels_to_show = [10, 11, 12, 13, 14, 15]
             signal_names = self.aoa_signal_names
-        elif selected_text == "Compute Distro Test":
+        elif selected_text == "Compute Distro Flex":
             self.current_test = "compute_distro"
             channels_to_show = list(range(1, 31))  # C1-C30
             signal_names = self.compute_distro_signal_names
-        elif selected_text == "Hover Aft Flex Test":
+        elif selected_text == "Hover Aft Flex":
             self.current_test = "hover_aft_short" if self.flex_short_mode else "hover_aft_flex"
             channels_to_show = list(range(1, 11))  # 10 channels
             signal_names = self.hover_aft_flex_signal_names
-        elif selected_text == "Hover Fore Flex Test":
+        elif selected_text == "Hover Fwd Flex":
             self.current_test = "hover_fore_short" if self.flex_short_mode else "hover_fore_flex"
             channels_to_show = list(range(1, 6))  # 5 channels
             signal_names = self.hover_fore_flex_signal_names
-        elif selected_text == "Camera Flex Test":
+        elif selected_text == "Camera Flex":
             if self.camera_aft_mode:
                 self.current_test = "camera_aft_short" if self.flex_short_mode else "camera_aft_flex"
                 signal_names = self.camera_aft_flex_signal_names
@@ -2898,7 +2924,7 @@ class MainWindow(QMainWindow):
         self.remove_all_channel_displays()
         
         # Set up layout based on test type
-        if selected_text in ["Compute Distro Test", "Camera Flex Test"]:
+        if selected_text in ["Compute Distro Flex", "Camera Flex"]:
             self._setup_two_column_layout()
         else:
             self._setup_single_column_layout()
@@ -2913,26 +2939,14 @@ class MainWindow(QMainWindow):
         
         # Insert note under CHASSIS channel for Hover Aft Flex only
         # Compute Distro: show Continuity/Short row and apply voltage visibility for short mode
-        if selected_text == "Compute Distro Test":
+        if selected_text == "Compute Distro Flex":
             self.cdist_mode_row.setVisible(False)
             self.flex_mode_row.setVisible(False)
             self.camera_fore_aft_row.setVisible(False)
-            show_voltage = self._should_show_voltage_for_current_test()
-            self.voltage_header_bubble.setVisible(show_voltage)
-            if hasattr(self, "header_bubbles_column2") and self.header_bubbles_column2:
-                self.header_bubbles_column2[1].setVisible(show_voltage)
-            for w in self.channel_widgets.values():
-                w.set_voltage_visible(show_voltage)
-        elif selected_text in ("AoA/Pitot Test", "Hover Fore Flex Test", "Hover Aft Flex Test", "Camera Flex Test"):
+        elif selected_text in ("AoA/Pitot Flex", "Hover Fwd Flex", "Hover Aft Flex", "Camera Flex"):
             self.cdist_mode_row.setVisible(False)
             self.flex_mode_row.setVisible(False)
-            show_voltage = self._should_show_voltage_for_current_test()
-            self.voltage_header_bubble.setVisible(show_voltage)
-            if hasattr(self, "header_bubbles_column2") and self.header_bubbles_column2:
-                self.header_bubbles_column2[1].setVisible(show_voltage)
-            for w in self.channel_widgets.values():
-                w.set_voltage_visible(show_voltage)
-            if selected_text == "Camera Flex Test":
+            if selected_text == "Camera Flex":
                 self.camera_fore_aft_row.setVisible(True)
                 self.camera_fore_btn.setChecked(not self.camera_aft_mode)
                 self.camera_aft_btn.setChecked(self.camera_aft_mode)
@@ -2944,6 +2958,7 @@ class MainWindow(QMainWindow):
             self.camera_fore_aft_row.setVisible(False)
 
         self._apply_board_type_ui()
+        self._update_header_visibility()
         self._update_camera_short_alias_warning()
 
         # Send command to Pico if connected and running
@@ -2956,7 +2971,7 @@ class MainWindow(QMainWindow):
             self.status_label.setText("Running %s..." % selected_text)
             self.status_label.setStyleSheet("color: #FED541;")
             self.send_command("test:%s" % self.current_test)
-            if selected_text == "Compute Distro Test":
+            if selected_text == "Compute Distro Flex":
                 self.send_command("mode:%s" % ("short" if self.cdist_short_mode else "continuity"))
             # Give the Pico a moment to switch tests
             time.sleep(0.2)
@@ -2966,7 +2981,7 @@ class MainWindow(QMainWindow):
     def _update_camera_short_alias_warning(self):
         """Show the appropriate alias-pair warning for Camera Short mode."""
         show_warning = (
-            self.test_combo.currentText() == "Camera Flex Test"
+            self.test_combo.currentText() == "Camera Flex"
             and self.flex_short_mode
         )
         if not show_warning:
@@ -2996,7 +3011,7 @@ class MainWindow(QMainWindow):
         self._set_measurement_mode(mode)
 
     def _set_camera_fore_aft(self, mode):
-        """Switch between Fore (P52A) and Aft (P52B) for Camera Flex Test."""
+        """Switch between Fore (P52A) and Aft (P52B) for Camera Flex."""
         if mode == "aft" and not self.camera_aft_enabled:
             self.camera_aft_mode = False
             self.camera_fore_btn.setChecked(True)
@@ -3008,9 +3023,9 @@ class MainWindow(QMainWindow):
         self.camera_aft_mode = (mode == "aft")
         self.camera_fore_btn.setChecked(mode == "fore")
         self.camera_aft_btn.setChecked(mode == "aft")
-        if self.test_combo.currentText() != "Camera Flex Test":
+        if self.test_combo.currentText() != "Camera Flex":
             return
-        self.on_test_change("Camera Flex Test")
+        self.on_test_change("Camera Flex")
 
     def start_test(self):
         """Start the test"""
@@ -3023,15 +3038,15 @@ class MainWindow(QMainWindow):
         
         # Send test command based on dropdown selection (flex tests use Continuity/Short mode)
         selected = self.test_combo.currentText()
-        if selected == "AoA/Pitot Test":
+        if selected == "AoA/Pitot Flex":
             self.current_test = "aoa_short" if self.flex_short_mode else "aoa"
-        elif selected == "Compute Distro Test":
+        elif selected == "Compute Distro Flex":
             self.current_test = "compute_distro"
-        elif selected == "Hover Aft Flex Test":
+        elif selected == "Hover Aft Flex":
             self.current_test = "hover_aft_short" if self.flex_short_mode else "hover_aft_flex"
-        elif selected == "Hover Fore Flex Test":
+        elif selected == "Hover Fwd Flex":
             self.current_test = "hover_fore_short" if self.flex_short_mode else "hover_fore_flex"
-        elif selected == "Camera Flex Test":
+        elif selected == "Camera Flex":
             if self.camera_aft_mode:
                 self.current_test = "camera_aft_short" if self.flex_short_mode else "camera_aft_flex"
             else:
