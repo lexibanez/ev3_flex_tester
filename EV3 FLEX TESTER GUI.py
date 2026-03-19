@@ -1518,6 +1518,7 @@ class MainWindow(QMainWindow):
             self.status_label.setStyleSheet("color: #0d8c5a;")
         else:
             self.status_label.setText("No device found - Click Start to retry")
+            self.reconnect_timer.start(2000)
         
         # Apply initial test selection so Continuity/Short row is shown for AoA/Pitot (and others) on first load
         self.on_test_change(self.test_combo.currentText())
@@ -2869,18 +2870,13 @@ class MainWindow(QMainWindow):
                 self.device_indicator_label.setText("Device: Disconnected")
                 self.device_indicator_label.setStyleSheet("color: #F73B30;")
         else:
-            # No connection - try to auto-detect (but don't interfere if test is running)
-            if not self.updating:  # Only auto-detect when not running a test
-                detected_ser = self.auto_detect_serial(BAUD_RATE)
-                if detected_ser:
-                    self.ser = detected_ser
-                    self.device_indicator_label.setText("Device: Connected")
-                    self.device_indicator_label.setStyleSheet("color: #0d8c5a;")
-                    self.status_label.setText("Device connected")
-                    self.status_label.setStyleSheet("color: #0d8c5a;")
-                else:
-                    self.device_indicator_label.setText("Device: Disconnected")
-                    self.device_indicator_label.setStyleSheet("color: #F73B30;")
+            # No connection - just show disconnected here.
+            # Actual serial probing is handled by the slower reconnect timer.
+            if not self.updating:
+                self.device_indicator_label.setText("Device: Disconnected")
+                self.device_indicator_label.setStyleSheet("color: #F73B30;")
+                if not self.reconnect_timer.isActive():
+                    self.reconnect_timer.start(2000)
             else:
                 # Test is running but no connection - show disconnected
                 self.device_indicator_label.setText("Device: Disconnected")
