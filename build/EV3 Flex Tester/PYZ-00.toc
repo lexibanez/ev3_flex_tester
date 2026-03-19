@@ -1,4 +1,4 @@
-('C:\\Users\\lex.ibanez\\Desktop\\ev3git\\ev3testerbackup2-18-136pm\\build\\EV3 '
+('C:\\Users\\lex.ibanez\\Desktop\\ev3git\\ev3testerbackup3-13-303pm\\build\\EV3 '
  'Flex Tester\\PYZ-00.pyz',
  [('PyQt5',
    'C:\\Users\\lex.ibanez\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\site-packages\\PyQt5\\__init__.py',
@@ -392,6 +392,9 @@
   ('random',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_3.13.3312.0_x64__qbz5n2kfra8p0\\Lib\\random.py',
+   'PYMODULE'),
+  ('resistance_calibration',
+   'C:\\Users\\lex.ibanez\\Desktop\\ev3git\\ev3testerbackup3-13-303pm\\resistance_calibration.py',
    'PYMODULE'),
   ('selectors',
    'C:\\Program '

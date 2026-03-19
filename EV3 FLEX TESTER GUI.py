@@ -1507,6 +1507,7 @@ class MainWindow(QMainWindow):
         self.json_indicator_timer = QTimer()
         self.json_indicator_timer.timeout.connect(self._update_json_indicator)
         self.json_indicator_timer.start(500)
+        self._last_idle_autodetect_time = 0.0
         
         # Event filter to detect mouse release after drag (restart update timer)
         QApplication.instance().installEventFilter(self)
@@ -2870,13 +2871,29 @@ class MainWindow(QMainWindow):
                 self.device_indicator_label.setText("Device: Disconnected")
                 self.device_indicator_label.setStyleSheet("color: #F73B30;")
         else:
-            # No connection - just show disconnected here.
-            # Actual serial probing is handled by the slower reconnect timer.
+            # No connection - do a throttled idle auto-detect so passive reconnect still works
+            # without hammering the UI every 500 ms.
             if not self.updating:
-                self.device_indicator_label.setText("Device: Disconnected")
-                self.device_indicator_label.setStyleSheet("color: #F73B30;")
-                if not self.reconnect_timer.isActive():
-                    self.reconnect_timer.start(2000)
+                now = time.time()
+                if now - self._last_idle_autodetect_time >= 2.0:
+                    self._last_idle_autodetect_time = now
+                    detected_ser = self.auto_detect_serial(BAUD_RATE)
+                    if detected_ser:
+                        self.ser = detected_ser
+                        self.device_indicator_label.setText("Device: Connected")
+                        self.device_indicator_label.setStyleSheet("color: #0d8c5a;")
+                        self.status_label.setText("Device connected")
+                        self.status_label.setStyleSheet("color: #0d8c5a;")
+                        if self.reconnect_timer.isActive():
+                            self.reconnect_timer.stop()
+                    else:
+                        self.device_indicator_label.setText("Device: Disconnected")
+                        self.device_indicator_label.setStyleSheet("color: #F73B30;")
+                        if not self.reconnect_timer.isActive():
+                            self.reconnect_timer.start(2000)
+                else:
+                    self.device_indicator_label.setText("Device: Disconnected")
+                    self.device_indicator_label.setStyleSheet("color: #F73B30;")
             else:
                 # Test is running but no connection - show disconnected
                 self.device_indicator_label.setText("Device: Disconnected")
