@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QLabel, QComboBox, QPushButton, QDialog, QFileDialog,
+                             QHBoxLayout, QLabel, QComboBox, QPushButton, QDialog, QFileDialog, QLineEdit,
                              QScrollArea, QFrame, QProgressBar, QDesktopWidget, QSizePolicy,
                              QGraphicsDropShadowEffect, QGraphicsOpacityEffect, QToolTip)
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QEvent
@@ -768,6 +768,33 @@ class MainWindow(QMainWindow):
         add_drop_shadow(self.test_combo, blur=8, y_offset=2, alpha=45)
         self.test_combo.currentTextChanged.connect(self.on_test_change)
         sidebar_layout.addWidget(self.test_combo)
+
+        self.sn_row = QWidget()
+        self.sn_row.setStyleSheet("background: transparent;")
+        sn_layout = QHBoxLayout(self.sn_row)
+        sn_layout.setContentsMargins(0, 6, 0, 0)
+        sn_layout.setSpacing(8)
+        sn_label = QLabel("SN")
+        sn_label.setFont(get_font(10, bold=True))
+        sn_label.setStyleSheet("color: #ffffff; background: transparent; border: none;")
+        sn_label.setMinimumWidth(24)
+        self.serial_number_input = QLineEdit()
+        self.serial_number_input.setFont(get_font(10))
+        self.serial_number_input.setPlaceholderText("Serial number")
+        self.serial_number_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #242021;
+                color: #ffffff;
+                border: 1px solid #555;
+                border-radius: 6px;
+                padding: 6px 8px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #666;
+            }
+        """)
+        sn_layout.addWidget(sn_label, stretch=0)
+        sn_layout.addWidget(self.serial_number_input, stretch=1)
         
         # Legacy flex mode row kept hidden; mode selection now uses the unified 3-button selector.
         self.flex_mode_row = QWidget()
@@ -1197,6 +1224,7 @@ class MainWindow(QMainWindow):
         """)
         add_drop_shadow(self.export_button, blur=10, y_offset=3, alpha=55)
         self.export_button.clicked.connect(self.export_results)
+        button_layout.addWidget(self.sn_row)
         button_layout.addWidget(self.export_button)
         
         sidebar_layout.addLayout(button_layout)
@@ -2337,6 +2365,7 @@ class MainWindow(QMainWindow):
 
         now = datetime.now().astimezone()
         measurement_mode = self._current_measurement_mode()
+        serial_number = self.serial_number_input.text().strip() if hasattr(self, "serial_number_input") else ""
         export_payload = {
             "export_version": 1,
             "timestamp_iso": now.isoformat(),
@@ -2349,6 +2378,8 @@ class MainWindow(QMainWindow):
             "flex_type": self._current_flex_label(),
             "channels": channels,
         }
+        if serial_number:
+            export_payload["serial_number"] = serial_number
 
         if self.resistance_enabled:
             export_payload["calibration"] = {
@@ -2420,6 +2451,8 @@ class MainWindow(QMainWindow):
             payload["measurement_mode"],
             self._export_test_name(),
         )
+        if payload.get("serial_number"):
+            default_name = "%s_SN%s.json" % (default_name[:-5], payload["serial_number"])
         default_path = os.path.join(self.last_export_dir, default_name)
         file_path, _ = QFileDialog.getSaveFileName(
             self,
