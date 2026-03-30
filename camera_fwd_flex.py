@@ -45,25 +45,25 @@ VDIV_SCALE = 101.0 / 100.0  # (R65 + R67) / R67
 # Pin matching: (demux_net, mux_net, signal_name)
 # Blower pins: MUX 21-26 per assignment (BLOWER_SF_A=21, BLOWER_PF_A=22, etc.)
 CAMERA_FLEX_CHANNELS = [
-    (1, 1, "GND8"),
-    (2, 1, "GND4"),
-    (3, 1, "GND7"),
+    (1, 1, "GND8"), #
+    (2, 4, "GND4"), 
+    (3, 4, "GND7"), 
     (4, 5, "GMSL2_PF_N"),
-    (5, 22, "BLOWER_PF_A"),   #  # MUX 22
+    (5, 22, "BLOWER_PF_A"),  
     (6, 3, "GMSL2_PF_P"),
-    (7, 24, "BLOWER_PF_B"),   #  # MUX 24
-    (8, 1, "GND3"),
-    (9, 26, "BLOWER_PF_C"),   #  # MUX 26
+    (7, 24, "BLOWER_PF_B"),  
+    (8, 1, "GND3"), #
+    (9, 26, "BLOWER_PF_C"),  
     (10, 9, "V_CAM_PF"),
-    (11, 25, "BLOWER_SF_C"),    # MUX 25
-    (12, 1, "GND2"),
-    (13, 23, "BLOWER_SF_B"),    # MUX 23
+    (11, 25, "BLOWER_SF_C"),   
+    (12, 1, "GND2"), #
+    (13, 23, "BLOWER_SF_B"), 
     (14, 15, "GMSL2_SF_N"),
-    (15, 21, "BLOWER_SF_A"),    # MUX 21
+    (15, 21, "BLOWER_SF_A"),
     (16, 13, "GMSL2_SF_P"),
-    (17, 1, "GND6"),
-    (18, 1, "GND1"),
-    (19, 1, "GND5"),
+    (17, 4, "GND6"),
+    (18, 4, "GND1"),
+    (19, 1, "GND5"), #
     (20, 19, "V_CAM_SF"),
 ]
 
