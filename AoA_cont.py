@@ -57,12 +57,12 @@ def set_exit_checker(checker_func):
 def run():
   
     test_channels = [
-        {"channel": 10, "signal": "AirData_SCL_EXT_P"},
-        {"channel": 11, "signal": "AirData_SCL_EXT_N"},
+        {"channel": 10, "signal": "GND"},
+        {"channel": 11, "signal": "AirData_SDA_EXT_N"},
         {"channel": 12, "signal": "AirData_SDA_EXT_P"},
         {"channel": 13, "signal": "AirData_12V6"},
-        {"channel": 14, "signal": "GND_AOA"},
-        {"channel": 15, "signal": "AirData_SDA_EXT_N"}
+        {"channel": 14, "signal": "AirData_SCL_EXT_P"},
+        {"channel": 15, "signal": "AirData_SCL_EXT_N"}
     ]
     
     while True:

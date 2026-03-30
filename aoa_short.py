@@ -43,12 +43,12 @@ def set_threshold(volts):
 
 # Channel number -> (demux_y, mux_y, signal) for AoA channels 10-15
 CHANS = [
-    (10, "AirData_SCL_EXT_P"),
-    (11, "AirData_SCL_EXT_N"),
+    (10, "GND"),
+    (11, "AirData_SDA_EXT_N"),
     (12, "AirData_SDA_EXT_P"),
     (13, "AirData_12V6"),
-    (14, "GND_AOA"),
-    (15, "AirData_SDA_EXT_N"),
+    (14, "AirData_SCL_EXT_P"),
+    (15, "AirData_SCL_EXT_N"),
 ]
 
 def do_scan():
