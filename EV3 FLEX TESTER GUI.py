@@ -1846,8 +1846,11 @@ class MainWindow(QMainWindow):
         gnd_vbox.addLayout(self.camera_gnd_layout)
         main_vbox.addWidget(gnd_section, stretch=1)
         self.camera_gnd_section = gnd_section
-        # Hide the GND section for both fore short and aft short so the short layout matches.
-        if self.current_test in ("camera_short", "camera_aft_short"):
+        # Hide the GND section for camera short tests and camera resistance tests so
+        # those layouts match the signal-only camera presentation.
+        if self.current_test in ("camera_short", "camera_aft_short") or (
+            self.resistance_enabled and self.current_test in ("camera_flex", "camera_aft_flex")
+        ):
             gnd_section.setVisible(False)
 
         self.camera_flex_main_container = main
@@ -2985,6 +2988,8 @@ class MainWindow(QMainWindow):
                 signal_names = self.camera_aft_flex_signal_names
                 if self.flex_short_mode:
                     channels_to_show = sorted(self.camera_aft_flex_pa_channels + self.camera_aft_flex_sa_channels)
+                elif self.resistance_enabled:
+                    channels_to_show = sorted(self.camera_aft_flex_pa_channels + self.camera_aft_flex_sa_channels)
                 else:
                     channels_to_show = list(range(1, 21))  # 20 channels (Aft)
             else:
@@ -2993,6 +2998,8 @@ class MainWindow(QMainWindow):
                 # Fore: camera_flex = 20 channels (with GND); camera_short = 12 channels (no GND)
                 if self.flex_short_mode:
                     channels_to_show = list(range(1, 13))  # camera_short 1-12
+                elif self.resistance_enabled:
+                    channels_to_show = sorted(self.camera_flex_pf_channels + self.camera_flex_sf_channels)
                 else:
                     channels_to_show = list(range(1, 21))  # camera_flex 20 channels including GND
         else:
